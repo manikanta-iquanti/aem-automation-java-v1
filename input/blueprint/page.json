@@ -1,0 +1,225 @@
+{
+  "jcr:primaryType": "cq:Page",
+  "jcr:createdBy": "admin",
+  "jcr:created": "Thu Jun 04 2026 13:24:23 GMT+0530",
+  "jcr:content": {
+    "jcr:primaryType": "cq:PageContent",
+    "jcr:mixinTypes": [
+      "mix:versionable"
+    ],
+    "jcr:createdBy": "admin",
+    "jcr:title": "Slow Train on Vietnam's Central Coast",
+    "jcr:versionHistory": "a380b232-37f5-44c9-a72f-55f309af948c",
+    "cq:template": "/conf/my-aem-site53/settings/wcm/templates/mer",
+    "jcr:predecessors": [
+      "8ae8c0fe-95c6-4f82-9745-ff1c15237cc6"
+    ],
+    "jcr:created": "Thu Jun 04 2026 13:24:23 GMT+0530",
+    "cq:lastModified": "Wed May 27 2026 18:33:54 GMT+0530",
+    "jcr:baseVersion": "8ae8c0fe-95c6-4f82-9745-ff1c15237cc6",
+    "jcr:isCheckedOut": true,
+    "jcr:uuid": "ce7e16dc-1c29-41d2-aeae-5c7fc0dfbf31",
+    "sling:resourceType": "my-aem-site53/components/page",
+    "cq:lastModifiedBy": "admin",
+    "root": {
+      "jcr:primaryType": "nt:unstructured",
+      "layout": "responsiveGrid",
+      "sling:resourceType": "my-aem-site53/components/container",
+      "container": {
+        "jcr:primaryType": "nt:unstructured",
+        "layout": "responsiveGrid",
+        "sling:resourceType": "my-aem-site53/components/container",
+        "meridian_header": {
+          "jcr:primaryType": "nt:unstructured",
+          "jcr:createdBy": "admin",
+          "jcr:lastModifiedBy": "admin",
+          "jcr:created": "Tue May 12 2026 21:43:58 GMT+0530",
+          "jcr:lastModified": "Tue May 12 2026 21:43:58 GMT+0530",
+          "sling:resourceType": "my-aem-site53/components/meridian-header"
+        },
+        "mig_hero": {
+          "jcr:primaryType": "nt:unstructured",
+          "publishDateText": "April 18, 2026",
+          "authorName": "Lan Pham",
+          "eyebrow": "Rail · Da Nang to Hue, Vietnam",
+          "readTime": "9 min read",
+          "imageAlt": "Train window view along a tropical coastline",
+          "dek": "Sea on one side, jungle on the other, and a dining car that believes deeply in instant noodles.",
+          "image": "https://images.unsplash.com/photo-1528127269322-539801943592?w=1600&q=80",
+          "title": "Slow Train on Vietnam's Central Coast",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-hero"
+        },
+        "mig_jump": {
+          "jcr:primaryType": "nt:unstructured",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-jump-links",
+          "links": {
+            "jcr:primaryType": "nt:unstructured",
+            "item0": {
+              "jcr:primaryType": "nt:unstructured",
+              "href": "why-sit-on-the-sea-side",
+              "text": "Why sit on the sea side"
+            },
+            "item1": {
+              "jcr:primaryType": "nt:unstructured",
+              "href": "what-to-bring-on-board",
+              "text": "What to bring on board"
+            },
+            "item2": {
+              "jcr:primaryType": "nt:unstructured",
+              "href": "a-loose-afternoon-in-hue",
+              "text": "A loose afternoon in Hue"
+            },
+            "item3": {
+              "jcr:primaryType": "nt:unstructured",
+              "href": "leaving",
+              "text": "Leaving"
+            }
+          }
+        },
+        "mig_par": {
+          "jcr:primaryType": "nt:unstructured",
+          "body": "\u003Cp\u003EThe reunification express is not the bullet train. It is vinyl seats, sliding windows that actually open, and a corridor that smells faintly of jasmine tea and diesel.\u003C/p\u003E",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-paragraph",
+          "textIsRich": "true",
+          "dropCap": "true"
+        },
+        "mig_head": {
+          "jcr:primaryType": "nt:unstructured",
+          "anchorId": "why-sit-on-the-sea-side",
+          "text": "Why sit on the sea side",
+          "level": "h2",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-heading"
+        },
+        "mig_par_2": {
+          "jcr:primaryType": "nt:unstructured",
+          "body": "\u003Cp\u003EBetween Da Nang and Hue the line hugs the Hai Van pass in glimpses — turquoise chop, fishing boats like commas, then tunnels cool as a cellar.\u003C/p\u003E",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-paragraph",
+          "textIsRich": "true",
+          "dropCap": "false"
+        },
+        "mig_head_2": {
+          "jcr:primaryType": "nt:unstructured",
+          "anchorId": "what-to-bring-on-board",
+          "text": "What to bring on board",
+          "level": "h2",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-heading"
+        },
+        "mig_list": {
+          "jcr:primaryType": "nt:unstructured",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-list",
+          "listType": "unordered",
+          "items": {
+            "jcr:primaryType": "nt:unstructured",
+            "item0": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "A light jacket — air conditioning oscillates between arctic and broken."
+            },
+            "item1": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Snacks you actually want; the cart is optimistic but limited."
+            },
+            "item2": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "A fully charged phone and downloaded maps — tunnels are long storytellers."
+            }
+          }
+        },
+        "mig_head_3": {
+          "jcr:primaryType": "nt:unstructured",
+          "anchorId": "a-loose-afternoon-in-hue",
+          "text": "A loose afternoon in Hue",
+          "level": "h2",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-heading"
+        },
+        "mig_list_2": {
+          "jcr:primaryType": "nt:unstructured",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-list",
+          "listType": "ordered",
+          "items": {
+            "jcr:primaryType": "nt:unstructured",
+            "item0": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Walk the perimeter of the citadel walls at golden hour."
+            },
+            "item1": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Eat bun bo Hue somewhere plastic stools outnumber menus."
+            },
+            "item2": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "End at a cafe overlooking the Perfume River with nothing urgent to do."
+            }
+          }
+        },
+        "mig_par_3": {
+          "jcr:primaryType": "nt:unstructured",
+          "body": "\u003Cp\u003E\u003Cem\u003EThe best seat is the one where you stop checking the time.\u003C/em\u003E\u003C/p\u003E",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-paragraph",
+          "textIsRich": "true",
+          "dropCap": "false"
+        },
+        "mig_callout": {
+          "jcr:primaryType": "nt:unstructured",
+          "eyebrow": "Etiquette note",
+          "body": "\u003Cp class=\"text-foreground leading-relaxed m-0\"\u003EOffer snacks across the aisle once; refusal is polite, acceptance is friendship.\u003C/p\u003E",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-callout",
+          "textIsRich": "true",
+          "initial": "E"
+        },
+        "mig_head_4": {
+          "jcr:primaryType": "nt:unstructured",
+          "anchorId": "leaving",
+          "text": "Leaving",
+          "level": "h2",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-heading"
+        },
+        "mig_par_4": {
+          "jcr:primaryType": "nt:unstructured",
+          "body": "\u003Cp\u003EHue's station smells of rain on concrete. I stepped onto the platform with creased tickets and the sense that the coast had been narrated to me in the kindest slow voice.\u003C/p\u003E",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-paragraph",
+          "textIsRich": "true",
+          "dropCap": "false"
+        },
+        "mig_tags": {
+          "jcr:primaryType": "nt:unstructured",
+          "sling:resourceType": "my-aem-site53/components/meridian-article-tags",
+          "tags": {
+            "jcr:primaryType": "nt:unstructured",
+            "item0": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Trains"
+            },
+            "item1": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Coast"
+            },
+            "item2": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Vietnam"
+            },
+            "item3": {
+              "jcr:primaryType": "nt:unstructured",
+              "text": "Slow travel"
+            }
+          }
+        },
+        "mig_author": {
+          "jcr:primaryType": "nt:unstructured",
+          "dropInitial": "L",
+          "authorName": "Lan Pham",
+          "label": "Written by",
+          "initials": "LP",
+          "sling:resourceType": "my-aem-site53/components/meridian-author-card"
+        },
+        "meridian_footer": {
+          "jcr:primaryType": "nt:unstructured",
+          "jcr:createdBy": "admin",
+          "jcr:lastModifiedBy": "admin",
+          "jcr:created": "Tue May 12 2026 21:44:14 GMT+0530",
+          "jcr:lastModified": "Tue May 12 2026 21:44:14 GMT+0530",
+          "sling:resourceType": "my-aem-site53/components/meridian-footer"
+        }
+      }
+    }
+  }
+}

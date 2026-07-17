@@ -1,7 +1,7 @@
 package com.aem.bulkauthoring.model;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 public class BlueprintComponent {
 
@@ -11,7 +11,7 @@ public class BlueprintComponent {
 
     private String path;
 
-    private Map<String, String> properties = new LinkedHashMap<>();
+    private final List<BlueprintProperty> properties = new ArrayList<>();
 
     public String getName() {
         return name;
@@ -37,8 +37,11 @@ public class BlueprintComponent {
         this.path = path;
     }
 
-    public Map<String, String> getProperties() {
+    public List<BlueprintProperty> getProperties() {
         return properties;
     }
 
+    public void addProperty(BlueprintProperty property) {
+        properties.add(property);
+    }
 }
