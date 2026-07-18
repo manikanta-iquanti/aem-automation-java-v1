@@ -6,6 +6,8 @@ import com.aem.bulkauthoring.model.BlueprintComponent;
 
 import java.io.File;
 
+import com.aem.bulkauthoring.generator.DocumentTemplateGenerator;
+
 public class Main {
 
     public static void main(String[] args) {
@@ -36,6 +38,11 @@ public class Main {
             c.getProperties().forEach(p ->
                     System.out.println(
                             p.getName() + " = " + p.getValue()));
+
+            new DocumentTemplateGenerator()
+                    .generate(
+                            blueprint,
+                            "output/template.docx");
         }
 
     }
