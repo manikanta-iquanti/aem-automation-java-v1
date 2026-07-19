@@ -1,6 +1,8 @@
 package com.aem.bulkauthoring;
 
 import com.aem.bulkauthoring.analyzer.BlueprintAnalyzer;
+import com.aem.bulkauthoring.blueprint.BlueprintProfileRegistry;
+import com.aem.bulkauthoring.blueprint.BlueprintTemplateProfile;
 import com.aem.bulkauthoring.generator.DocumentTemplateGenerator;
 import com.aem.bulkauthoring.model.Blueprint;
 import com.aem.bulkauthoring.model.document.DocumentBlock;
@@ -20,11 +22,19 @@ import java.util.List;
 
 public class Main {
 
-    //    private static final String MODE = "generate-template";
-    private static final String MODE = "parse-document";
+    private static final String MODE = "generate-template";
+    // private static final String MODE = "parse-document";
+
+    /**
+     * Blueprint profile key — must match {@link BlueprintProfileRegistry}.
+     * Use {@code normal-page} + page.json, or {@code meridian-article} + page1.json.
+     */
+    private static final String BLUEPRINT_KEY = "normal-page";
 
     private static final File BLUEPRINT =
             new File("input/blueprint/page.json");
+    // private static final File BLUEPRINT =
+    //         new File("input/blueprint/page1.json");
 
     private static final File ARTICLES_DIR =
             new File("input/articles");
@@ -48,16 +58,21 @@ public class Main {
 
     private static void generateTemplate() {
 
+        BlueprintTemplateProfile profile =
+                BlueprintProfileRegistry.get(BLUEPRINT_KEY);
+
         Blueprint blueprint =
                 new BlueprintAnalyzer().analyze(BLUEPRINT);
 
+        String outputFile =
+                "input/templates/" + profile.id() + ".docx";
+
         new DocumentTemplateGenerator()
-                .generate(
-                        blueprint,
-                        "input/templates/template.docx");
+                .generate(blueprint, profile, BLUEPRINT, outputFile);
 
         System.out.println();
-        System.out.println("Template generated.");
+        System.out.println("Template generated: " + outputFile);
+        System.out.println("Profile: " + profile.id());
     }
 
     private static void parseDocumentsAndBuildPackage() {
