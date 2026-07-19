@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:sling="http://sling.apache.org/jcr/sling/1.0" xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:mix="http://www.jcp.org/jcr/mix/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content
+        cq:lastModified="{Date}2026-05-27T18:33:54.556+05:30"
+        cq:lastModifiedBy="admin"
+        cq:template="/conf/my-aem-site53/settings/wcm/templates/mer"
+        jcr:isCheckedOut="{Boolean}true"
+        jcr:mixinTypes="[mix:versionable]"
+        jcr:primaryType="cq:PageContent"
+        jcr:title="Slow Train on Vietnam's Central Coast"
+        jcr:uuid="ce7e16dc-1c29-41d2-aeae-5c7fc0dfbf31"
+        sling:resourceType="my-aem-site53/components/page">
+        <root
+            jcr:primaryType="nt:unstructured"
+            sling:resourceType="my-aem-site53/components/container"
+            layout="responsiveGrid">
+            <container
+                jcr:primaryType="nt:unstructured"
+                sling:resourceType="my-aem-site53/components/container"
+                layout="responsiveGrid">
+                <meridian_header
+                    jcr:created="{Date}2026-05-12T21:43:58.357+05:30"
+                    jcr:createdBy="admin"
+                    jcr:lastModified="{Date}2026-05-12T21:43:58.357+05:30"
+                    jcr:lastModifiedBy="admin"
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-header"/>
+                <mig_hero
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-hero"
+                    authorName="Lan Pham"
+                    dek="Sea on one side, jungle on the other, and a dining car that believes deeply in instant noodles."
+                    eyebrow="Rail · Da Nang to Hue, Vietnam"
+                    image="https://images.unsplash.com/photo-1528127269322-539801943592?w=1600&amp;q=80"
+                    imageAlt="Train window view along a tropical coastline"
+                    publishDateText="April 18, 2026"
+                    readTime="9 min read"
+                    title="Slow Train on Vietnam's Central Coast"/>
+                <mig_jump
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-jump-links">
+                    <links jcr:primaryType="nt:unstructured">
+                        <item0
+                            jcr:primaryType="nt:unstructured"
+                            href="why-sit-on-the-sea-side"
+                            text="Why sit on the sea side"/>
+                        <item1
+                            jcr:primaryType="nt:unstructured"
+                            href="what-to-bring-on-board"
+                            text="What to bring on board"/>
+                        <item2
+                            jcr:primaryType="nt:unstructured"
+                            href="a-loose-afternoon-in-hue"
+                            text="A loose afternoon in Hue"/>
+                        <item3
+                            jcr:primaryType="nt:unstructured"
+                            href="leaving"
+                            text="Leaving"/>
+                    </links>
+                </mig_jump>
+                <mig_par
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-paragraph"
+                    body="&lt;p>The reunification express is not the bullet train. It is vinyl seats, sliding windows that actually open, and a corridor that smells faintly of jasmine tea and diesel.&lt;/p>"
+                    dropCap="true"
+                    textIsRich="true"/>
+                <mig_head
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-heading"
+                    anchorId="why-sit-on-the-sea-side"
+                    level="h2"
+                    text="Why sit on the sea side"/>
+                <mig_par_2
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-paragraph"
+                    body="&lt;p>Between Da Nang and Hue the line hugs the Hai Van pass in glimpses — turquoise chop, fishing boats like commas, then tunnels cool as a cellar.&lt;/p>"
+                    dropCap="false"
+                    textIsRich="true"/>
+                <mig_head_2
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-heading"
+                    anchorId="what-to-bring-on-board"
+                    level="h2"
+                    text="What to bring on board"/>
+                <mig_list
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-list"
+                    listType="unordered">
+                    <items jcr:primaryType="nt:unstructured">
+                        <item0
+                            jcr:primaryType="nt:unstructured"
+                            text="A light jacket — air conditioning oscillates between arctic and broken."/>
+                        <item1
+                            jcr:primaryType="nt:unstructured"
+                            text="Snacks you actually want; the cart is optimistic but limited."/>
+                        <item2
+                            jcr:primaryType="nt:unstructured"
+                            text="A fully charged phone and downloaded maps — tunnels are long storytellers."/>
+                    </items>
+                </mig_list>
+                <mig_head_3
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-heading"
+                    anchorId="a-loose-afternoon-in-hue"
+                    level="h2"
+                    text="A loose afternoon in Hue"/>
+                <mig_list_2
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-list"
+                    listType="ordered">
+                    <items jcr:primaryType="nt:unstructured">
+                        <item0
+                            jcr:primaryType="nt:unstructured"
+                            text="Walk the perimeter of the citadel walls at golden hour."/>
+                        <item1
+                            jcr:primaryType="nt:unstructured"
+                            text="Eat bun bo Hue somewhere plastic stools outnumber menus."/>
+                        <item2
+                            jcr:primaryType="nt:unstructured"
+                            text="End at a cafe overlooking the Perfume River with nothing urgent to do."/>
+                    </items>
+                </mig_list_2>
+                <mig_par_3
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-paragraph"
+                    body="&lt;p>&lt;em>The best seat is the one where you stop checking the time.&lt;/em>&lt;/p>"
+                    dropCap="false"
+                    textIsRich="true"/>
+                <mig_callout
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-callout"
+                    body="&lt;p class=&quot;text-foreground leading-relaxed m-0&quot;>Offer snacks across the aisle once; refusal is polite, acceptance is friendship.&lt;/p>"
+                    eyebrow="Etiquette note"
+                    initial="E"
+                    textIsRich="true"/>
+                <mig_head_4
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-heading"
+                    anchorId="leaving"
+                    level="h2"
+                    text="Leaving"/>
+                <mig_par_4
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-paragraph"
+                    body="&lt;p>Hue's station smells of rain on concrete. I stepped onto the platform with creased tickets and the sense that the coast had been narrated to me in the kindest slow voice.&lt;/p>"
+                    dropCap="false"
+                    textIsRich="true"/>
+                <mig_tags
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-article-tags">
+                    <tags jcr:primaryType="nt:unstructured">
+                        <item0
+                            jcr:primaryType="nt:unstructured"
+                            text="Trains"/>
+                        <item1
+                            jcr:primaryType="nt:unstructured"
+                            text="Coast"/>
+                        <item2
+                            jcr:primaryType="nt:unstructured"
+                            text="Vietnam"/>
+                        <item3
+                            jcr:primaryType="nt:unstructured"
+                            text="Slow travel"/>
+                    </tags>
+                </mig_tags>
+                <mig_author
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-author-card"
+                    authorName="Lan Pham"
+                    dropInitial="L"
+                    initials="LP"
+                    label="Written by"/>
+                <meridian_footer
+                    jcr:created="{Date}2026-05-12T21:44:14.368+05:30"
+                    jcr:createdBy="admin"
+                    jcr:lastModified="{Date}2026-05-12T21:44:14.368+05:30"
+                    jcr:lastModifiedBy="admin"
+                    jcr:primaryType="nt:unstructured"
+                    sling:resourceType="my-aem-site53/components/meridian-footer"/>
+            </container>
+        </root>
+    </jcr:content>
+</jcr:root>

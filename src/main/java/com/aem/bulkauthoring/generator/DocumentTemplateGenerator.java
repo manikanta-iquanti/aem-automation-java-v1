@@ -38,66 +38,63 @@ public class DocumentTemplateGenerator {
     private void writeComponent(XWPFDocument document,
                                 BlueprintComponent component) {
 
-        String type = component.getResourceType();
+        String rt = component.getResourceType();
 
-        switch (type) {
+        switch (rt) {
 
             case "my-aem-site53/components/meridian-article-hero":
 
-                addHeading(document,
-                        get(component, "title"),
-                        "TITLE");
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/title",
+                        get(component, "title"));
 
-                addParagraph(document,
-                        get(component, "dek"),
-                        "DEK");
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/dek",
+                        get(component, "dek"));
 
                 break;
 
             case "my-aem-site53/components/meridian-article-heading":
 
-                addHeading(document,
-                        get(component, "text"),
-                        "H2");
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/text",
+                        get(component, "text"));
 
                 break;
 
             case "my-aem-site53/components/meridian-article-paragraph":
 
-                addParagraph(document,
-                        stripHtml(get(component, "body")),
-                        "PARAGRAPH");
-
-                break;
-
-            case "my-aem-site53/components/meridian-article-list":
-
-                addParagraph(document,
-                        "[LIST]",
-                        "LIST");
-
-                break;
-
-            case "my-aem-site53/components/meridian-pull-quote":
-
-                addParagraph(document,
-                        get(component, "quote"),
-                        "QUOTE");
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/body",
+                        stripHtml(get(component, "body")));
 
                 break;
 
             case "my-aem-site53/components/meridian-article-callout":
 
-                addParagraph(document,
-                        stripHtml(get(component, "body")),
-                        "CALLOUT");
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/body",
+                        stripHtml(get(component, "body")));
+
+                break;
+
+            case "my-aem-site53/components/meridian-article-list":
+
+                addEditableBlock(
+                        document,
+                        component.getPath() + "/items",
+                        "- Item 1\n- Item 2\n- Item 3");
 
                 break;
 
             default:
                 break;
         }
-
     }
 
     private void addHeading(XWPFDocument doc,
@@ -128,6 +125,26 @@ public class DocumentTemplateGenerator {
 
     }
 
+    private void addListBlock(XWPFDocument doc) {
+
+        XWPFParagraph p;
+
+        p = doc.createParagraph();
+        p.createRun().setText("LIST:");
+
+        p = doc.createParagraph();
+        p.createRun().setText("- Item 1");
+
+        p = doc.createParagraph();
+        p.createRun().setText("- Item 2");
+
+        p = doc.createParagraph();
+        p.createRun().setText("- Item 3");
+
+        p = doc.createParagraph();
+        p.createRun().setText("END_LIST");
+    }
+
     private String get(BlueprintComponent component,
                        String propertyName) {
 
@@ -149,6 +166,28 @@ public class DocumentTemplateGenerator {
 
         return html.replaceAll("<[^>]*>", "");
 
+    }
+
+    private void addEditableBlock(XWPFDocument doc,
+                                  String id,
+                                  String value) {
+
+        XWPFParagraph p;
+
+        // Marker (do not edit)
+        p = doc.createParagraph();
+
+        XWPFRun run = p.createRun();
+        run.setBold(true);
+        run.setColor("808080");
+        run.setText("[[" + id + "]]");
+
+        // Editable content
+        p = doc.createParagraph();
+        p.createRun().setText(value);
+
+        // Blank line
+        doc.createParagraph();
     }
 
 }

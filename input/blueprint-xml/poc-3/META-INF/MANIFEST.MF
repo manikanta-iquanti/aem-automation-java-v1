@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Content-Package-Id: my_packages:poc-3
+Content-Package-Roots: /content/my-aem-site53/us/en/articles/vietnam-cen
+ tral-coast-train
+Content-Package-Type: content
+
