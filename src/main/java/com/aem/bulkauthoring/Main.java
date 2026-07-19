@@ -3,6 +3,8 @@ package com.aem.bulkauthoring;
 import com.aem.bulkauthoring.analyzer.BlueprintAnalyzer;
 import com.aem.bulkauthoring.blueprint.BlueprintProfileRegistry;
 import com.aem.bulkauthoring.blueprint.BlueprintTemplateProfile;
+import com.aem.bulkauthoring.blueprint.FieldFormat;
+import com.aem.bulkauthoring.blueprint.PathFormatIndex;
 import com.aem.bulkauthoring.generator.DocumentTemplateGenerator;
 import com.aem.bulkauthoring.model.Blueprint;
 import com.aem.bulkauthoring.model.document.DocumentBlock;
@@ -19,11 +21,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 public class Main {
 
-    private static final String MODE = "generate-template";
-    // private static final String MODE = "parse-document";
+    // private static final String MODE = "generate-template";
+    private static final String MODE = "parse-document";
 
     /**
      * Blueprint profile key — must match {@link BlueprintProfileRegistry}.
@@ -77,6 +80,15 @@ public class Main {
 
     private static void parseDocumentsAndBuildPackage() {
 
+        BlueprintTemplateProfile profile =
+                BlueprintProfileRegistry.get(BLUEPRINT_KEY);
+
+        Blueprint analyzed =
+                new BlueprintAnalyzer().analyze(BLUEPRINT);
+
+        Map<String, FieldFormat> formats =
+                PathFormatIndex.build(analyzed, profile);
+
         File[] docs = ARTICLES_DIR.listFiles(
                 (dir, name) -> name.toLowerCase().endsWith(".docx")
                         && !name.startsWith("~$"));
@@ -102,7 +114,7 @@ public class Main {
             List<DocumentBlock> blocks = parser.parse(doc.getPath());
 
             File updatedJson = new File(pagesDir, pageName + ".json");
-            updater.update(BLUEPRINT, blocks, updatedJson);
+            updater.update(BLUEPRINT, blocks, updatedJson, formats);
 
             try {
                 JsonNode pageRoot = mapper.readTree(updatedJson);
@@ -116,9 +128,10 @@ public class Main {
                     + " from " + doc.getName());
         }
 
-        File zip = new PackageBuilder().build(pages);
+        File zip = new PackageBuilder().build(pages, profile.packageConfig());
 
         System.out.println();
+        System.out.println("Profile: " + profile.id());
         System.out.println("Updated blueprints written under:");
         System.out.println(pagesDir.getAbsolutePath());
         System.out.println("Install package:");

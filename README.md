@@ -8,44 +8,42 @@ Java tool that turns one authored AEM page (blueprint) into many similar pages b
 
 ## Documentation
 
-| Guide | Status |
-|-------|--------|
-| **[Phase 1: Blueprint → Word template](docs/phase-1-template-generation.md)** | Documented and ready to use |
-| **[Writing blueprint profiles](docs/writing-blueprint-profiles.md)** | How to onboard new page types |
+| Guide | Description |
+|-------|-------------|
+| **[Phase 1: Blueprint → Word template](docs/phase-1-template-generation.md)** | Generate editable DOCX from blueprint JSON |
+| **[Phase 2: DOCX → content package](docs/phase-2-package-pipeline.md)** | Parse authored articles → JSON → installable zip |
+| **[Writing blueprint profiles](docs/writing-blueprint-profiles.md)** | Add support for a new page type / template |
 | [Docs index](docs/README.md) | All guides |
-
-Phase 1 is the supported starting point. Later steps (parse DOCX → update JSON → zip package) exist in code but may still need fixes for new blueprints—prefer the Phase 1 docs until that flow is finalized.
 
 ---
 
-## End-to-end pipeline (overview)
+## End-to-end pipeline
 
 ```text
 ┌─────────────────────┐
 │ Blueprint JSON      │  one sample page (structure + seed content)
-│ (+ optional XML pkg)│
+│ + FileVault XML pkg │  reference export for package scaffold
 └──────────┬──────────┘
            │  Phase 1 — generate-template
            ▼
 ┌─────────────────────┐
 │ Word template DOCX  │  [[/jcr:content/.../field]] + editable seed text
+│ input/templates/    │
 └──────────┬──────────┘
-           │  authors duplicate & fill many DOCXs
+           │  authors copy template → fill many DOCXs
            ▼
 ┌─────────────────────┐
 │ input/articles/*.docx│
 └──────────┬──────────┘
-           │  Phase 2 — parse-document (in progress)
+           │  Phase 2 — parse-document
            ▼
 ┌─────────────────────┐
-│ Updated page JSON   │
-└──────────┬──────────┘
-           │  Phase 3 — package build (in progress)
-           ▼
-┌─────────────────────┐
-│ bulk-articles.zip   │  FileVault package → AEM Package Manager
+│ output/pages/*.json │  updated blueprints
+│ output/<name>.zip   │  FileVault package → AEM Package Manager
 └─────────────────────┘
 ```
+
+Both phases use the **same blueprint profile**: field allow-list for Word, `FieldFormat` for reverse mapping, and `packageConfig()` for the zip scaffold.
 
 ---
 
@@ -54,27 +52,34 @@ Phase 1 is the supported starting point. Later steps (parse DOCX → update JSON
 ```text
 aem-bulk-authoring/
 ├── README.md
-├── docs/                          ← guides (start here for Phase 1)
+├── docs/
+│   ├── README.md
+│   ├── phase-1-template-generation.md
+│   ├── phase-2-package-pipeline.md
+│   └── writing-blueprint-profiles.md
 ├── pom.xml                        ← Java 11, Jackson, Apache POI
 ├── input/
 │   ├── blueprint/                 ← page JSON blueprints
 │   │   ├── page.json              ← normal page (NormalPageProfile)
 │   │   └── page1.json             ← Meridian article (MeridianArticleProfile)
-│   ├── blueprint-xml/             ← reference FileVault exports
+│   ├── blueprint-xml/             ← FileVault exports (package scaffolds)
 │   │   ├── normal-page1/
 │   │   └── poc-3/
-│   ├── templates/                 ← generated DOCX templates
+│   ├── templates/                 ← generated DOCX templates (Phase 1)
 │   └── articles/                  ← authored DOCX inputs (Phase 2)
-├── output/                        ← updated JSON, package folder, zip
+├── output/
+│   ├── pages/                     ← updated JSON per article
+│   ├── package/                   ← unzipped FileVault tree
+│   └── *.zip                      ← installable content package
 └── src/main/java/com/aem/bulkauthoring/
-    ├── Main.java                  ← MODE + blueprint selection
+    ├── Main.java                  ← MODE + BLUEPRINT_KEY + blueprint file
     ├── analyzer/                  ← JSON → component list
-    ├── blueprint/                 ← profiles + registry (Phase 1)
-    │   └── profiles/              ← ← add new blueprint profiles here
+    ├── blueprint/                 ← profiles, registry, package config, path formats
+    │   └── profiles/              ← add new blueprint profiles here
     ├── generator/                 ← generic DOCX writer
-    ├── parser/                    ← DOCX → blocks
-    ├── updater/                   ← apply blocks to JSON
-    └── packagebuilder/            ← FileVault zip
+    ├── parser/                    ← DOCX → path/value blocks
+    ├── updater/                   ← apply blocks onto JSON
+    └── packagebuilder/            ← DocView XML + FileVault zip
 ```
 
 ---
@@ -90,11 +95,11 @@ mvn -q compile
 
 ---
 
-## Quick start (Phase 1 only)
+## Quick start
 
-Generate a Word template from the normal-page blueprint:
+### Phase 1 — generate a Word template
 
-1. In `Main.java` ensure:
+In [`Main.java`](src/main/java/com/aem/bulkauthoring/Main.java):
 
 ```java
 private static final String MODE = "generate-template";
@@ -103,34 +108,65 @@ private static final File BLUEPRINT =
         new File("input/blueprint/page.json");
 ```
 
-2. Run:
-
 ```bash
 mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.Main"
 ```
 
-3. Open:
+Output: `input/templates/normal-page.docx`
 
-```text
-input/templates/normal-page.docx
+For Meridian: `BLUEPRINT_KEY = "meridian-article"` and `input/blueprint/page1.json` → `input/templates/meridian-article.docx`.
+
+Full guide: [docs/phase-1-template-generation.md](docs/phase-1-template-generation.md)
+
+### Phase 2 — build a content package from authored DOCX
+
+1. Copy the template into `input/articles/` as `article1.docx`, `article2.docx`, … and edit values **under** the `[[...]]` markers (do not change the marker lines).
+2. In `Main.java`:
+
+```java
+private static final String MODE = "parse-document";
+private static final String BLUEPRINT_KEY = "normal-page";
+private static final File BLUEPRINT =
+        new File("input/blueprint/page.json");
 ```
 
-For the Meridian article blueprint, use `BLUEPRINT_KEY = "meridian-article"` and `input/blueprint/page1.json` → output `input/templates/meridian-article.docx`.
+3. Run the same Maven command as above.
 
-**Full guide:** [docs/phase-1-template-generation.md](docs/phase-1-template-generation.md)
+Outputs:
+
+| Artifact | Example |
+|----------|---------|
+| Updated JSON | `output/pages/article1.json`, `article2.json` |
+| Installable zip | `output/bulk-normal-pages.zip` |
+
+Install the zip in AEM Package Manager. Pages are created under the parent path from the profile’s `packageConfig()` (for normal-page: `/content/my-aem-site53/us/en/articles/article1`, …).
+
+Full guide: [docs/phase-2-package-pipeline.md](docs/phase-2-package-pipeline.md)
 
 ---
 
-## Adding a new blueprint (Phase 1)
+## Built-in blueprints
 
-Blueprints differ by components and fields. Generic code stays unchanged; you add a **profile**.
+| Profile key | JSON | XML scaffold | Template DOCX | Zip name |
+|-------------|------|--------------|---------------|----------|
+| `normal-page` | `input/blueprint/page.json` | `input/blueprint-xml/normal-page1` | `normal-page.docx` | `bulk-normal-pages.zip` |
+| `meridian-article` | `input/blueprint/page1.json` | `input/blueprint-xml/poc-3` | `meridian-article.docx` | `bulk-articles.zip` |
+
+---
+
+## Adding a new blueprint
+
+Generic analyzer / generator / parser / updater / package builder stay unchanged. You add a **profile**.
 
 1. Put JSON in `input/blueprint/`.
-2. Create a class under `src/main/java/com/aem/bulkauthoring/blueprint/profiles/`.
-3. Register it in `BlueprintProfileRegistry`.
-4. Point `Main` at the new key + file and run `generate-template`.
+2. Export a FileVault package to `input/blueprint-xml/<name>/`.
+3. Create `src/.../blueprint/profiles/MyProfile.java` with:
+   - editable fields (`fieldsFor` / `pageFields`)
+   - `packageConfig()` (scaffold dir, content parent, sample page name, zip name)
+4. Register it in `BlueprintProfileRegistry`.
+5. Set `BLUEPRINT_KEY` + blueprint file in `Main`, run Phase 1 then Phase 2.
 
-Worked examples (`NormalPageProfile`, `MeridianArticleProfile`) and a copy-paste skeleton:
+Worked examples and a copy-paste skeleton:
 
 → **[docs/writing-blueprint-profiles.md](docs/writing-blueprint-profiles.md)**
 
@@ -141,18 +177,19 @@ Worked examples (`NormalPageProfile`, `MeridianArticleProfile`) and a copy-paste
 | `MODE` | Purpose |
 |--------|---------|
 | `generate-template` | Phase 1 — JSON + profile → DOCX under `input/templates/` |
-| `parse-document` | Later — parse `input/articles/*.docx`, update blueprint, build zip |
+| `parse-document` | Phase 2 — parse `input/articles/*.docx`, update JSON, build zip |
 
-Switch by changing the `MODE` constant in [`Main.java`](src/main/java/com/aem/bulkauthoring/Main.java).
+Switch by changing the `MODE` constant in [`Main.java`](src/main/java/com/aem/bulkauthoring/Main.java). Keep `BLUEPRINT_KEY` and the blueprint file aligned with the articles you are processing.
 
 ---
 
 ## Design notes
 
-- **JSON** is the working format through analyze / update.
-- **Profiles** are an allow-list of authorable fields so Word stays clean (no layout/chrome noise).
-- **Markers** are JCR paths (`[[/jcr:content/...]]`) so updates can target the correct property in the tree.
-- **XML packages** under `input/blueprint-xml/` are the FileVault shape used when building installable zips.
+- **JSON** is the working format through analyze / update; **XML** is produced only for the installable package.
+- **Profiles** are an allow-list of authorable fields (Word stays free of layout/chrome noise).
+- **Markers** are JCR paths (`[[/jcr:content/...]]`) so Phase 2 can target the correct property.
+- **`FieldFormat`** (`PLAIN` / `HTML` / `LIST`) is declared once on the profile and used for both template seeding and JSON write-back.
+- **`packageConfig()`** points at the FileVault export used as the zip scaffold and sets install paths / package name.
 
 ---
 

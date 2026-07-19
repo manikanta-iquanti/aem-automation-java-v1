@@ -1,5 +1,6 @@
 package com.aem.bulkauthoring.updater;
 
+import com.aem.bulkauthoring.blueprint.FieldFormat;
 import com.aem.bulkauthoring.model.document.DocumentBlock;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -8,15 +9,14 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Iterator;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Applies document blocks onto a JSON blueprint.
- * Block ids are path markers from the DOCX template, e.g.
- * {@code /jcr:content/root/container/mig_hero/title}.
+ * Applies document blocks onto a JSON blueprint using path markers and
+ * {@link FieldFormat} from the blueprint profile.
  */
 public class BlueprintUpdater {
 
@@ -24,7 +24,8 @@ public class BlueprintUpdater {
 
     public void update(File originalBlueprint,
                        List<DocumentBlock> blocks,
-                       File outputFile) {
+                       File outputFile,
+                       Map<String, FieldFormat> formats) {
 
         try {
 
@@ -32,8 +33,14 @@ public class BlueprintUpdater {
             ObjectNode copy = (ObjectNode) root.deepCopy();
 
             Map<String, String> valuesByPath = indexBlocks(blocks);
-            apply(copy, "", valuesByPath);
-            syncPageTitle(copy, valuesByPath);
+            Map<String, FieldFormat> formatMap =
+                    formats == null ? Collections.emptyMap() : formats;
+
+            for (Map.Entry<String, String> entry : valuesByPath.entrySet()) {
+                String path = entry.getKey();
+                FieldFormat format = formatMap.getOrDefault(path, FieldFormat.PLAIN);
+                applyPath(copy, path, entry.getValue(), format);
+            }
 
             if (outputFile.getParentFile() != null) {
                 outputFile.getParentFile().mkdirs();
@@ -43,11 +50,8 @@ public class BlueprintUpdater {
                     .writeValue(outputFile, copy);
 
         } catch (IOException e) {
-
             throw new RuntimeException(e);
-
         }
-
     }
 
     private Map<String, String> indexBlocks(List<DocumentBlock> blocks) {
@@ -56,8 +60,8 @@ public class BlueprintUpdater {
             if (block.getId() == null) {
                 continue;
             }
-            String path = normalizePath(block.getId());
-            values.put(path, block.getValue() == null ? "" : block.getValue());
+            values.put(normalizePath(block.getId()),
+                    block.getValue() == null ? "" : block.getValue());
         }
         return values;
     }
@@ -73,41 +77,75 @@ public class BlueprintUpdater {
         return normalized;
     }
 
-    private void apply(ObjectNode node,
-                       String path,
-                       Map<String, String> valuesByPath) {
+    private void applyPath(ObjectNode root,
+                           String path,
+                           String value,
+                           FieldFormat format) {
 
-        List<String> keys = new ArrayList<>();
-        Iterator<String> names = node.fieldNames();
-        while (names.hasNext()) {
-            keys.add(names.next());
+        String[] segments = path.startsWith("/")
+                ? path.substring(1).split("/")
+                : path.split("/");
+
+        if (segments.length == 0) {
+            return;
         }
 
-        for (String key : keys) {
-            String childPath = path + "/" + key;
-            JsonNode child = node.get(key);
-
-            if (valuesByPath.containsKey(childPath)) {
-                String value = valuesByPath.get(childPath);
-
-                if (child != null && child.isObject()) {
-                    updateListItems((ObjectNode) child, value);
-                } else {
-                    node.put(key, transformPropertyValue(key, value));
-                }
+        ObjectNode current = root;
+        for (int i = 0; i < segments.length - 1; i++) {
+            String segment = segments[i];
+            JsonNode child = current.get(segment);
+            if (child == null || !child.isObject()) {
+                return;
             }
+            current = (ObjectNode) child;
+        }
 
-            if (child != null && child.isObject()) {
-                apply((ObjectNode) child, childPath, valuesByPath);
+        String last = segments[segments.length - 1];
+
+        if (format == FieldFormat.LIST) {
+            ObjectNode listNode;
+            if (current.has(last) && current.get(last).isObject()) {
+                listNode = (ObjectNode) current.get(last);
+            } else {
+                listNode = current.putObject(last);
+                listNode.put("jcr:primaryType", "nt:unstructured");
             }
+            updateListItems(listNode, value);
+        } else {
+            current.put(last, transformValue(format, value));
         }
     }
 
-    private String transformPropertyValue(String property, String value) {
-        if ("body".equals(property) && !looksLikeHtml(value)) {
-            return "<p>" + escapeXml(value) + "</p>";
+    private String transformValue(FieldFormat format, String value) {
+        if (value == null) {
+            value = "";
+        }
+        if (format == FieldFormat.HTML) {
+            return toHtml(value);
         }
         return value;
+    }
+
+    private String toHtml(String value) {
+        if (looksLikeHtml(value)) {
+            return value;
+        }
+
+        String[] paragraphs = value.split("\\R{2,}");
+        StringBuilder html = new StringBuilder();
+        for (String paragraph : paragraphs) {
+            String trimmed = paragraph.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            String withBreaks = escapeXml(trimmed).replace("\n", "<br/>");
+            html.append("<p>").append(withBreaks).append("</p>\n");
+        }
+
+        if (html.length() == 0) {
+            return "<p></p>";
+        }
+        return html.toString().trim();
     }
 
     private boolean looksLikeHtml(String value) {
@@ -169,18 +207,4 @@ public class BlueprintUpdater {
 
         return items;
     }
-
-    private void syncPageTitle(ObjectNode root, Map<String, String> valuesByPath) {
-        String heroTitle = valuesByPath.get(
-                "/jcr:content/root/container/mig_hero/title");
-        if (heroTitle == null || heroTitle.isBlank()) {
-            return;
-        }
-
-        JsonNode content = root.get("jcr:content");
-        if (content != null && content.isObject()) {
-            ((ObjectNode) content).put("jcr:title", heroTitle);
-        }
-    }
-
 }

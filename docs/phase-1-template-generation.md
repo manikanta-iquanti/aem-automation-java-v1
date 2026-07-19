@@ -24,7 +24,7 @@ input/blueprint/<page>.json
  input/templates/<profile-id>.docx
 ```
 
-Authors later edit the text under each `[[...]]` marker. Parsing those edits back into JSON / a content package is a later phase.
+Authors later edit the text under each `[[...]]` marker. To turn filled DOCXs into an installable AEM package, continue with **[Phase 2: Package pipeline](phase-2-package-pipeline.md)**.
 
 ---
 
@@ -123,10 +123,11 @@ Profiles are an **allow-list**. Only listed resource types and properties appear
 
 1. Export a sample page to JSON → `input/blueprint/my-page.json`.
 2. Inspect each content node’s `sling:resourceType` and the **authorable** properties (title, body, names, …).
-3. Create `MyPageProfile.java` under `blueprint/profiles/` (copy an existing profile).
+3. Create `MyPageProfile.java` under `blueprint/profiles/` (copy an existing profile), including `packageConfig()` if you will run Phase 2.
 4. Register it in `BlueprintProfileRegistry`.
 5. Set `BLUEPRINT_KEY` / `BLUEPRINT` in `Main`, run `generate-template`.
 6. Open `input/templates/<your-profile-id>.docx` and confirm every intended field has a marker.
+7. For packaging: export FileVault XML under `input/blueprint-xml/`, then follow [Phase 2](phase-2-package-pipeline.md).
 
 Step-by-step profile authoring with full examples: **[Writing blueprint profiles](writing-blueprint-profiles.md)**.
 
@@ -165,4 +166,5 @@ EditableField.plain("/jcr:content/jcr:title")
 ## Related docs
 
 - [Writing blueprint profiles](writing-blueprint-profiles.md) — how to create `NormalPageProfile`-style classes
+- [Phase 2: Package pipeline](phase-2-package-pipeline.md) — DOCX → JSON → content package
 - [Project README](../README.md) — full pipeline overview

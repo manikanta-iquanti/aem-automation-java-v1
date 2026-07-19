@@ -1,8 +1,10 @@
 package com.aem.bulkauthoring.blueprint.profiles;
 
+import com.aem.bulkauthoring.blueprint.BlueprintPackageConfig;
 import com.aem.bulkauthoring.blueprint.BlueprintTemplateProfile;
 import com.aem.bulkauthoring.blueprint.EditableField;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -82,6 +84,16 @@ public class MeridianArticleProfile implements BlueprintTemplateProfile {
     public List<EditableField> pageFields() {
         return Collections.singletonList(
                 EditableField.plain("/jcr:content/jcr:title")
+        );
+    }
+
+    @Override
+    public BlueprintPackageConfig packageConfig() {
+        return new BlueprintPackageConfig(
+                new File("input/blueprint-xml/poc-3"),
+                "/content/my-aem-site53/us/en/articles",
+                "vietnam-central-coast-train",
+                "bulk-articles"
         );
     }
 }

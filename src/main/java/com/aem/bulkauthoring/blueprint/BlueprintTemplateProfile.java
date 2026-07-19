@@ -12,6 +12,7 @@ import java.util.List;
  *   <li>Create {@code profiles/MyBlueprintProfile.java} listing resource types + fields</li>
  *   <li>Register it in {@link BlueprintProfileRegistry}</li>
  *   <li>Set {@code BLUEPRINT_KEY} / blueprint file in {@code Main}, run generate-template</li>
+ *   <li>Implement {@link #packageConfig()} for parse → content package</li>
  * </ol>
  */
 public interface BlueprintTemplateProfile {
@@ -29,4 +30,9 @@ public interface BlueprintTemplateProfile {
     default List<EditableField> pageFields() {
         return Collections.emptyList();
     }
+
+    /**
+     * FileVault scaffold and install paths for Phase 2 package generation.
+     */
+    BlueprintPackageConfig packageConfig();
 }

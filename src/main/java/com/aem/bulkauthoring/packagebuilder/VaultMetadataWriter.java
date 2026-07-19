@@ -1,5 +1,7 @@
 package com.aem.bulkauthoring.packagebuilder;
 
+import com.aem.bulkauthoring.blueprint.BlueprintPackageConfig;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
@@ -13,20 +15,23 @@ import java.util.stream.Collectors;
 public class VaultMetadataWriter {
 
     private static final String GROUP = "my_packages";
-    private static final String PACKAGE_NAME = "bulk-articles";
-    private static final String ARTICLES_ROOT =
-            "/content/my-aem-site53/us/en/articles";
 
-    public void write(File packageRoot, List<PageArtifact> pages) throws IOException {
+    public void write(File packageRoot,
+                      List<PageArtifact> pages,
+                      BlueprintPackageConfig config) throws IOException {
+
+        String contentParent = config.getContentParentPath();
+        String packageName = config.getPackageName();
+
         List<String> roots = pages.stream()
-                .map(p -> ARTICLES_ROOT + "/" + p.getPageName())
+                .map(p -> contentParent + "/" + p.getPageName())
                 .collect(Collectors.toList());
 
         writeFilter(packageRoot, roots);
-        writeProperties(packageRoot);
-        writeManifest(packageRoot, roots);
-        writeDefinition(packageRoot, roots);
-        writeArticlesStub(packageRoot, pages);
+        writeProperties(packageRoot, packageName);
+        writeManifest(packageRoot, roots, packageName);
+        writeDefinition(packageRoot, roots, packageName);
+        writeParentStub(packageRoot, pages, config);
     }
 
     private void writeFilter(File packageRoot, List<String> roots) throws IOException {
@@ -45,7 +50,7 @@ public class VaultMetadataWriter {
         }
     }
 
-    private void writeProperties(File packageRoot) throws IOException {
+    private void writeProperties(File packageRoot, String packageName) throws IOException {
         File props = new File(packageRoot, "META-INF/vault/properties.xml");
         String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 
@@ -54,14 +59,14 @@ public class VaultMetadataWriter {
             writer.write("<!DOCTYPE properties SYSTEM \"http://java.sun.com/dtd/properties.dtd\">\n");
             writer.write("<properties>\n");
             writer.write("<comment>FileVault Package Properties</comment>\n");
-            writer.write("<entry key=\"description\">Bulk authored article pages</entry>\n");
+            writer.write("<entry key=\"description\">Bulk authored pages</entry>\n");
             writer.write("<entry key=\"packageType\">content</entry>\n");
             writer.write("<entry key=\"packageFormatVersion\">2</entry>\n");
             writer.write("<entry key=\"group\">");
             writer.write(GROUP);
             writer.write("</entry>\n");
             writer.write("<entry key=\"name\">");
-            writer.write(PACKAGE_NAME);
+            writer.write(escapeXml(packageName));
             writer.write("</entry>\n");
             writer.write("<entry key=\"version\"></entry>\n");
             writer.write("<entry key=\"dependencies\"></entry>\n");
@@ -78,7 +83,9 @@ public class VaultMetadataWriter {
         }
     }
 
-    private void writeManifest(File packageRoot, List<String> roots) throws IOException {
+    private void writeManifest(File packageRoot,
+                               List<String> roots,
+                               String packageName) throws IOException {
         File manifest = new File(packageRoot, "META-INF/MANIFEST.MF");
         manifest.getParentFile().mkdirs();
 
@@ -89,7 +96,7 @@ public class VaultMetadataWriter {
             writer.write("Content-Package-Id: ");
             writer.write(GROUP);
             writer.write(":");
-            writer.write(PACKAGE_NAME);
+            writer.write(packageName);
             writer.write("\r\n");
             writeManifestHeader(writer, "Content-Package-Roots", rootsValue);
             writer.write("Content-Package-Type: content\r\n");
@@ -118,7 +125,9 @@ public class VaultMetadataWriter {
         }
     }
 
-    private void writeDefinition(File packageRoot, List<String> roots) throws IOException {
+    private void writeDefinition(File packageRoot,
+                                 List<String> roots,
+                                 String packageName) throws IOException {
         File definition = new File(packageRoot, "META-INF/vault/definition/.content.xml");
         definition.getParentFile().mkdirs();
         String now = OffsetDateTime.now().format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
@@ -133,11 +142,11 @@ public class VaultMetadataWriter {
             writer.write(GROUP);
             writer.write("\"\n");
             writer.write("    name=\"");
-            writer.write(PACKAGE_NAME);
+            writer.write(escapeXml(packageName));
             writer.write("\"\n");
             writer.write("    version=\"\"\n");
             writer.write("    buildCount=\"1\"\n");
-            writer.write("    jcr:description=\"Bulk authored article pages\"\n");
+            writer.write("    jcr:description=\"Bulk authored pages\"\n");
             writer.write("    jcr:created=\"{Date}");
             writer.write(escapeXml(now));
             writer.write("\"\n");
@@ -165,13 +174,15 @@ public class VaultMetadataWriter {
         }
     }
 
-    private void writeArticlesStub(File packageRoot, List<PageArtifact> pages) throws IOException {
-        File articlesContent = new File(
+    private void writeParentStub(File packageRoot,
+                                 List<PageArtifact> pages,
+                                 BlueprintPackageConfig config) throws IOException {
+        File parentContent = new File(
                 packageRoot,
-                "jcr_root/content/my-aem-site53/us/en/articles/.content.xml");
-        articlesContent.getParentFile().mkdirs();
+                config.jcrRootContentParent() + "/.content.xml");
+        parentContent.getParentFile().mkdirs();
 
-        try (Writer writer = Files.newBufferedWriter(articlesContent.toPath(), StandardCharsets.UTF_8)) {
+        try (Writer writer = Files.newBufferedWriter(parentContent.toPath(), StandardCharsets.UTF_8)) {
             writer.write("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
             writer.write("<jcr:root xmlns:cq=\"http://www.day.com/jcr/cq/1.0\" ");
             writer.write("xmlns:jcr=\"http://www.jcp.org/jcr/1.0\"\n");
@@ -192,9 +203,5 @@ public class VaultMetadataWriter {
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;");
-    }
-
-    public static String packageName() {
-        return PACKAGE_NAME;
     }
 }

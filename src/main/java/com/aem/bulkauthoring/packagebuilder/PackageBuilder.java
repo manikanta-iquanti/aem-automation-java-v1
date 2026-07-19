@@ -1,5 +1,7 @@
 package com.aem.bulkauthoring.packagebuilder;
 
+import com.aem.bulkauthoring.blueprint.BlueprintPackageConfig;
+
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
@@ -12,15 +14,12 @@ import java.util.List;
 
 public class PackageBuilder {
 
-    private static final File BLUEPRINT_PACKAGE =
-            new File("input/blueprint-xml/poc-3");
-
-    private static final String SAMPLE_PAGE =
-            "vietnam-central-coast-train";
-
-    public File build(List<PageArtifact> pages) {
+    public File build(List<PageArtifact> pages, BlueprintPackageConfig config) {
         if (pages == null || pages.isEmpty()) {
             throw new IllegalArgumentException("At least one page is required");
+        }
+        if (config == null) {
+            throw new IllegalArgumentException("Package config is required");
         }
 
         try {
@@ -28,15 +27,15 @@ public class PackageBuilder {
             delete(packageRoot);
             Files.createDirectories(packageRoot.toPath());
 
-            scaffoldFromBlueprint(packageRoot);
-            removeSamplePage(packageRoot);
+            scaffoldFromBlueprint(packageRoot, config);
+            removeSamplePage(packageRoot, config);
 
-            new ContentWriter().write(pages, packageRoot);
-            new VaultMetadataWriter().write(packageRoot, pages);
+            new ContentWriter().write(pages, packageRoot, config);
+            new VaultMetadataWriter().write(packageRoot, pages, config);
 
             File zipFile = new File(
                     "output",
-                    VaultMetadataWriter.packageName() + ".zip");
+                    config.getPackageName() + ".zip");
             new PackageZipper().zip(packageRoot, zipFile);
 
             System.out.println();
@@ -50,17 +49,19 @@ public class PackageBuilder {
         }
     }
 
-    private void scaffoldFromBlueprint(File packageRoot) throws IOException {
-        if (!BLUEPRINT_PACKAGE.isDirectory()) {
-            throw new IOException("Blueprint package not found: " + BLUEPRINT_PACKAGE);
+    private void scaffoldFromBlueprint(File packageRoot,
+                                       BlueprintPackageConfig config) throws IOException {
+        File blueprintPackage = config.getVaultPackageDir();
+        if (!blueprintPackage.isDirectory()) {
+            throw new IOException("Blueprint package not found: " + blueprintPackage);
         }
 
-        copyTree(BLUEPRINT_PACKAGE.toPath(), packageRoot.toPath());
+        copyTree(blueprintPackage.toPath(), packageRoot.toPath());
     }
 
-    private void removeSamplePage(File packageRoot) throws IOException {
-        Path samplePage = packageRoot.toPath().resolve(
-                "jcr_root/content/my-aem-site53/us/en/articles/" + SAMPLE_PAGE);
+    private void removeSamplePage(File packageRoot,
+                                  BlueprintPackageConfig config) throws IOException {
+        Path samplePage = packageRoot.toPath().resolve(config.samplePageJcrRootPath());
         if (Files.exists(samplePage)) {
             delete(samplePage.toFile());
         }

@@ -295,9 +295,11 @@ input/templates/product-landing.docx
 ```java
 package com.aem.bulkauthoring.blueprint.profiles;
 
+import com.aem.bulkauthoring.blueprint.BlueprintPackageConfig;
 import com.aem.bulkauthoring.blueprint.BlueprintTemplateProfile;
 import com.aem.bulkauthoring.blueprint.EditableField;
 
+import java.io.File;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -321,7 +323,7 @@ public class MyBlueprintProfile implements BlueprintTemplateProfile {
 
     @Override
     public String id() {
-        return "my-blueprint"; // used as DOCX filename stem
+        return "my-blueprint"; // registry key + DOCX filename stem
     }
 
     @Override
@@ -335,6 +337,17 @@ public class MyBlueprintProfile implements BlueprintTemplateProfile {
                 EditableField.plain("/jcr:content/jcr:title")
         );
     }
+
+    /** Required for Phase 2 (content package). */
+    @Override
+    public BlueprintPackageConfig packageConfig() {
+        return new BlueprintPackageConfig(
+                new File("input/blueprint-xml/my-export"),
+                "/content/my-aem-site53/us/en/articles",
+                "sample-page-name-in-export",
+                "bulk-my-blueprint"
+        );
+    }
 }
 ```
 
@@ -342,7 +355,7 @@ Then:
 
 1. `register(new MyBlueprintProfile());` in the registry  
 2. Set `BLUEPRINT_KEY` / `BLUEPRINT` in `Main`  
-3. Run `generate-template`
+3. Run `generate-template` (Phase 1), then after authors fill DOCX files run `parse-document` (Phase 2)
 
 ---
 
@@ -362,8 +375,10 @@ Then:
 ```text
 src/main/java/com/aem/bulkauthoring/blueprint/
 ├── BlueprintTemplateProfile.java      ← interface + developer checklist (Javadoc)
+├── BlueprintPackageConfig.java        ← vault scaffold + install paths (Phase 2)
+├── PathFormatIndex.java               ← path → FieldFormat for JSON write-back
 ├── EditableField.java
-├── FieldFormat.java
+├── FieldFormat.java                   ← PLAIN / HTML / LIST
 ├── BlueprintProfileRegistry.java      ← register every profile here
 └── profiles/
     ├── NormalPageProfile.java
@@ -376,4 +391,5 @@ src/main/java/com/aem/bulkauthoring/blueprint/
 ## Related docs
 
 - [Phase 1: Template generation](phase-1-template-generation.md) — inputs, run steps, troubleshooting
+- [Phase 2: Package pipeline](phase-2-package-pipeline.md) — DOCX → JSON → content package
 - [Project README](../README.md)
