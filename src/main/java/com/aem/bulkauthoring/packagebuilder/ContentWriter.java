@@ -2,33 +2,29 @@ package com.aem.bulkauthoring.packagebuilder;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.util.List;
 
 public class ContentWriter {
 
-    public void write(File updatedBlueprint,
-                      File packageRoot) {
+    private static final String PAGE_PATH_PREFIX =
+            "jcr_root/content/my-aem-site53/us/en/articles/";
 
-        try {
+    private final DocViewXmlWriter xmlWriter = new DocViewXmlWriter();
 
-            File destination = new File(
+    public void write(List<PageArtifact> pages, File packageRoot) throws IOException {
+        for (PageArtifact page : pages) {
+            File contentXml = new File(
                     packageRoot,
-                    "jcr_root/content/page.json");
+                    PAGE_PATH_PREFIX + page.getPageName() + "/.content.xml");
+            contentXml.getParentFile().mkdirs();
 
-            destination.getParentFile().mkdirs();
-
-            Files.copy(
-                    updatedBlueprint.toPath(),
-                    destination.toPath(),
-                    StandardCopyOption.REPLACE_EXISTING);
-
-        } catch (IOException e) {
-
-            throw new RuntimeException(e);
-
+            try (Writer writer = Files.newBufferedWriter(
+                    contentXml.toPath(), StandardCharsets.UTF_8)) {
+                xmlWriter.write(page.getPageRoot(), writer);
+            }
         }
-
     }
-
 }
