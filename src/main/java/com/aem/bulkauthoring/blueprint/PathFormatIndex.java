@@ -26,7 +26,8 @@ public final class PathFormatIndex {
         }
 
         for (BlueprintComponent component : blueprint.getComponents()) {
-            List<EditableField> fields = profile.fieldsFor(component.getResourceType());
+            List<EditableField> fields = profile.fieldsFor(
+                    component.getResourceType(), component.getPath());
             for (EditableField field : fields) {
                 String path = field.isAbsolute()
                         ? field.getProperty()

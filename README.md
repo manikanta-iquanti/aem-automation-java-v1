@@ -10,11 +10,11 @@ Java tool that turns one authored AEM page (blueprint) into many similar pages b
 
 | Guide | Description |
 |-------|-------------|
+| **[Phase 4: Blueprint Studio](docs/phase-4-blueprint-studio.md)** | Local web UI — upload, pick fields, generate & build (no Java coding) |
 | **[Phase 1: Blueprint → Word template](docs/phase-1-template-generation.md)** | Generate editable DOCX from blueprint JSON |
 | **[Phase 2: DOCX → content package](docs/phase-2-package-pipeline.md)** | Parse authored articles → JSON → installable zip |
-| **[Writing blueprint profiles](docs/writing-blueprint-profiles.md)** | Add support for a new page type / template |
+| **[Writing blueprint profiles](docs/writing-blueprint-profiles.md)** | JSON profiles under `input/profiles/` |
 | [Plan: Client doc → template](docs/plans/client-doc-to-template.md) | Future isolated adapt flow (not implemented) |
-| [Plan: UI Blueprint Studio](docs/plans/ui-blueprint-studio.md) | Future local UI for non-tech setup (not implemented) |
 | [Docs index](docs/README.md) | All guides |
 
 ---
@@ -55,29 +55,27 @@ Both phases use the **same blueprint profile**: field allow-list for Word, `Fiel
 aem-bulk-authoring/
 ├── README.md
 ├── docs/
-│   ├── README.md
+│   ├── phase-4-blueprint-studio.md
 │   ├── phase-1-template-generation.md
 │   ├── phase-2-package-pipeline.md
 │   └── writing-blueprint-profiles.md
-├── pom.xml                        ← Java 11, Jackson, Apache POI
+├── pom.xml                        ← Java 11, Jackson, POI, Javalin
 ├── input/
+│   ├── profiles/                  ← JSON blueprint profiles (data-driven)
 │   ├── blueprint/                 ← page JSON blueprints
-│   │   ├── page.json              ← normal page (NormalPageProfile)
-│   │   └── page1.json             ← Meridian article (MeridianArticleProfile)
 │   ├── blueprint-xml/             ← FileVault exports (package scaffolds)
-│   │   ├── normal-page1/
-│   │   └── poc-3/
 │   ├── templates/                 ← generated DOCX templates (Phase 1)
-│   └── articles/                  ← authored DOCX inputs (Phase 2)
+│   └── articles/                  ← authored DOCX inputs (Phase 2 / Studio)
 ├── output/
 │   ├── pages/                     ← updated JSON per article
 │   ├── package/                   ← unzipped FileVault tree
 │   └── *.zip                      ← installable content package
 └── src/main/java/com/aem/bulkauthoring/
-    ├── Main.java                  ← MODE + BLUEPRINT_KEY + blueprint file
+    ├── Main.java                  ← CLI MODE + BLUEPRINT_KEY
+    ├── studio/                    ← Blueprint Studio (StudioMain + REST UI)
+    ├── service/                   ← BulkAuthoringService, VaultPackageInspector
     ├── analyzer/                  ← JSON → component list
-    ├── blueprint/                 ← profiles, registry, package config, path formats
-    │   └── profiles/              ← add new blueprint profiles here
+    ├── blueprint/                 ← JsonBlueprintProfile, registry, formats
     ├── generator/                 ← generic DOCX writer
     ├── parser/                    ← DOCX → path/value blocks
     ├── updater/                   ← apply blocks onto JSON
@@ -99,16 +97,24 @@ mvn -q compile
 
 ## Quick start
 
-### Phase 1 — generate a Word template
+### Preferred — Blueprint Studio (local UI)
+
+```bash
+mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.studio.StudioMain"
+```
+
+Open [http://127.0.0.1:8080](http://127.0.0.1:8080). Full guide: [docs/phase-4-blueprint-studio.md](docs/phase-4-blueprint-studio.md).
+
+### CLI Phase 1 — generate a Word template
 
 In [`Main.java`](src/main/java/com/aem/bulkauthoring/Main.java):
 
 ```java
 private static final String MODE = "generate-template";
 private static final String BLUEPRINT_KEY = "normal-page";
-private static final File BLUEPRINT =
-        new File("input/blueprint/page.json");
 ```
+
+Blueprint JSON path comes from `input/profiles/<key>.json`.
 
 ```bash
 mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.Main"
@@ -116,11 +122,11 @@ mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.Main"
 
 Output: `input/templates/normal-page.docx`
 
-For Meridian: `BLUEPRINT_KEY = "meridian-article"` and `input/blueprint/page1.json` → `input/templates/meridian-article.docx`.
+For Meridian: `BLUEPRINT_KEY = "meridian-article"` → `input/templates/meridian-article.docx`.
 
 Full guide: [docs/phase-1-template-generation.md](docs/phase-1-template-generation.md)
 
-### Phase 2 — build a content package from authored DOCX
+### CLI Phase 2 — build a content package from authored DOCX
 
 1. Copy the template into `input/articles/` as `article1.docx`, `article2.docx`, … and edit values **under** the `[[...]]` markers (do not change the marker lines).
 2. In `Main.java`:
@@ -128,8 +134,6 @@ Full guide: [docs/phase-1-template-generation.md](docs/phase-1-template-generati
 ```java
 private static final String MODE = "parse-document";
 private static final String BLUEPRINT_KEY = "normal-page";
-private static final File BLUEPRINT =
-        new File("input/blueprint/page.json");
 ```
 
 3. Run the same Maven command as above.

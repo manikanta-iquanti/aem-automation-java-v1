@@ -1,0 +1,38 @@
+{
+  "id": "normal-page",
+  "blueprintJson": "input/blueprint/page.json",
+  "fields": [
+    {
+      "resourceType": "my-aem-site53/components/author",
+      "property": "fname",
+      "format": "PLAIN"
+    },
+    {
+      "resourceType": "my-aem-site53/components/author",
+      "property": "lname",
+      "format": "PLAIN"
+    },
+    {
+      "resourceType": "my-aem-site53/components/author",
+      "property": "professor",
+      "format": "PLAIN"
+    },
+    {
+      "resourceType": "my-aem-site53/components/text",
+      "property": "text",
+      "format": "HTML"
+    }
+  ],
+  "pageFields": [
+    {
+      "property": "/jcr:content/jcr:title",
+      "format": "PLAIN"
+    }
+  ],
+  "package": {
+    "vaultPackageDir": "input/blueprint-xml/normal-page1",
+    "contentParentPath": "/content/my-aem-site53/us/en/articles",
+    "samplePageName": "normal-page1",
+    "packageName": "bulk-normal-pages"
+  }
+}
