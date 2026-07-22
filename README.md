@@ -13,6 +13,8 @@ Java tool that turns one authored AEM page (blueprint) into many similar pages b
 | **[Phase 1: Blueprint → Word template](docs/phase-1-template-generation.md)** | Generate editable DOCX from blueprint JSON |
 | **[Phase 2: DOCX → content package](docs/phase-2-package-pipeline.md)** | Parse authored articles → JSON → installable zip |
 | **[Writing blueprint profiles](docs/writing-blueprint-profiles.md)** | Add support for a new page type / template |
+| [Plan: Client doc → template](docs/plans/client-doc-to-template.md) | Future isolated adapt flow (not implemented) |
+| [Plan: UI Blueprint Studio](docs/plans/ui-blueprint-studio.md) | Future local UI for non-tech setup (not implemented) |
 | [Docs index](docs/README.md) | All guides |
 
 ---

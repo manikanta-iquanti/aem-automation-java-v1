@@ -21,4 +21,11 @@ Guides for the AEM bulk authoring engine.
 |-----|-------------|
 | [Phase 2: Package pipeline](phase-2-package-pipeline.md) | Parse articles, update blueprint JSON, build FileVault zip |
 
+## Future / planned features
+
+| Doc | Description |
+|-----|-------------|
+| [Plan: Client doc → target template](plans/client-doc-to-template.md) | Isolated `docadapt` flow — messy client DOCX → marked template (not implemented yet) |
+| [Plan: UI Blueprint Studio](plans/ui-blueprint-studio.md) | Local web UI + JSON profiles — non-tech blueprint setup & runs (not implemented yet) |
+
 Back to the [project README](../README.md).
