@@ -1,7 +1,10 @@
 package com.aem.bulkauthoring.studio;
 
+import com.aem.bulkauthoring.docadapt.DocAdaptService;
+import com.aem.bulkauthoring.docadapt.review.AdaptReviewModel;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.javalin.Javalin;
 import io.javalin.http.UploadedFile;
@@ -17,9 +20,11 @@ import java.util.Map;
 public final class StudioApi {
 
     private final BlueprintStudioService studio = new BlueprintStudioService();
+    private final DocAdaptService adaptService = new DocAdaptService();
     private final ObjectMapper mapper = new ObjectMapper();
 
     public void register(Javalin app) {
+        registerAdaptRoutes(app);
         app.get("/api/blueprints", ctx -> ctx.json(studio.listBlueprints()));
 
         app.post("/api/blueprints", ctx -> {
@@ -253,6 +258,133 @@ public final class StudioApi {
                 ctx.status(404).json(error(e.getMessage()));
             }
         });
+    }
+
+    /**
+     * Optional Adapt flow — isolated from Phase 1/2. Existing generate/upload/build
+     * routes above do not call {@link DocAdaptService}.
+     */
+    private void registerAdaptRoutes(Javalin app) {
+        app.get("/api/adapt/mappings", ctx -> {
+            try {
+                ctx.json(Map.of("mappings", adaptService.listMappings()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
+            }
+        });
+
+        app.post("/api/adapt/run", ctx -> {
+            String mappingId = ctx.formParam("mappingId");
+            if (mappingId == null || mappingId.isBlank()) {
+                ctx.status(400).json(error("mappingId is required"));
+                return;
+            }
+            File tempDir = Files.createTempDirectory("studio-adapt-").toFile();
+            List<File> uploaded = new ArrayList<>();
+            try {
+                for (UploadedFile file : ctx.uploadedFiles("sources")) {
+                    File dest = new File(tempDir, file.filename());
+                    try (InputStream in = file.content()) {
+                        Files.copy(in, dest.toPath());
+                    }
+                    uploaded.add(dest);
+                }
+                DocAdaptService.AdaptJobResult result = uploaded.isEmpty()
+                        ? adaptService.run(mappingId, null)
+                        : adaptService.run(mappingId, uploaded);
+                ctx.json(toAdaptJson(result));
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(error(e.getMessage()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
+            } finally {
+                File[] leftovers = tempDir.listFiles();
+                if (leftovers != null) {
+                    for (File f : leftovers) {
+                        f.delete();
+                    }
+                }
+                tempDir.delete();
+            }
+        });
+
+        app.get("/api/adapt/review/{jobId}", ctx -> {
+            try {
+                ctx.json(toAdaptJson(adaptService.getReview(ctx.pathParam("jobId"))));
+            } catch (IllegalArgumentException e) {
+                ctx.status(404).json(error(e.getMessage()));
+            }
+        });
+
+        app.get("/api/adapt/download/{jobId}/{file}", ctx -> {
+            try {
+                File adapted = adaptService.resolveAdaptedFile(
+                        ctx.pathParam("jobId"), ctx.pathParam("file"));
+                ctx.header("Content-Disposition",
+                        "attachment; filename=\"" + adapted.getName() + "\"");
+                ctx.result(Files.newInputStream(adapted.toPath()));
+            } catch (IllegalArgumentException e) {
+                ctx.status(404).json(error(e.getMessage()));
+            }
+        });
+
+        app.post("/api/adapt/send-to-articles", ctx -> {
+            try {
+                JsonNode body = mapper.readTree(ctx.body());
+                String jobId = text(body, "jobId");
+                String blueprintId = text(body, "blueprintId");
+                if (jobId == null || blueprintId == null) {
+                    ctx.status(400).json(error("jobId and blueprintId are required"));
+                    return;
+                }
+                List<String> files = new ArrayList<>();
+                if (body.has("files") && body.get("files").isArray()) {
+                    for (JsonNode n : body.get("files")) {
+                        files.add(n.asText());
+                    }
+                }
+                if (files.isEmpty()) {
+                    ctx.status(400).json(error("Choose at least one adapted file"));
+                    return;
+                }
+                List<String> copied = adaptService.sendToArticles(
+                        jobId, files, studio.articlesDir(blueprintId));
+                ctx.json(Map.of("articles", copied));
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(error(e.getMessage()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
+            }
+        });
+    }
+
+    private ObjectNode toAdaptJson(DocAdaptService.AdaptJobResult result) {
+        ObjectNode root = mapper.createObjectNode();
+        root.put("jobId", result.jobId);
+        root.put("mappingId", result.mappingId);
+        ArrayNode reviews = root.putArray("reviews");
+        for (AdaptReviewModel review : result.reviews) {
+            ObjectNode r = reviews.addObject();
+            r.put("sourceFile", review.getSourceFile());
+            r.put("adaptedFile", review.getAdaptedFile());
+            r.put("sourcePlainText", review.getSourcePlainText());
+            ArrayNode slots = r.putArray("slots");
+            for (AdaptReviewModel.SlotReview slot : review.getSlots()) {
+                ObjectNode s = slots.addObject();
+                s.put("path", slot.getPath());
+                s.put("value", slot.getValue());
+                s.put("sourceExcerpt", slot.getSourceExcerpt());
+            }
+        }
+        return root;
+    }
+
+    private static String text(JsonNode body, String field) {
+        if (body == null || !body.has(field) || body.get(field).isNull()) {
+            return null;
+        }
+        String v = body.get(field).asText();
+        return v == null || v.isBlank() ? null : v;
     }
 
     private static Map<String, String> error(String message) {

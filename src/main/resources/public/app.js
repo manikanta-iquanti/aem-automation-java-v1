@@ -2,6 +2,12 @@
   const state = {
     selectedId: null,
     readiness: null,
+    adapt: {
+      jobId: null,
+      reviews: [],
+      index: 0,
+      approved: {},
+    },
   };
 
   const $ = (id) => document.getElementById(id);
@@ -536,5 +542,160 @@
     }
   });
 
+  async function loadAdaptMappings() {
+    const select = $("adaptMapping");
+    if (!select) return;
+    try {
+      const data = await api("/api/adapt/mappings");
+      const ids = data.mappings || [];
+      select.innerHTML = "";
+      if (!ids.length) {
+        select.innerHTML = '<option value="">No mappings in input/source-mappings</option>';
+        return;
+      }
+      ids.forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id;
+        select.appendChild(opt);
+      });
+      if (ids.includes("usb-content-hub-normal-page")) {
+        select.value = "usb-content-hub-normal-page";
+      }
+    } catch (e) {
+      select.innerHTML = `<option value="">${esc(e.message)}</option>`;
+    }
+  }
+
+  function currentAdaptReview() {
+    return state.adapt.reviews[state.adapt.index] || null;
+  }
+
+  function renderAdaptReview() {
+    const panel = $("adaptReview");
+    const review = currentAdaptReview();
+    if (!review) {
+      panel.hidden = true;
+      return;
+    }
+    panel.hidden = false;
+    $("adaptIndex").textContent =
+      `${state.adapt.index + 1} / ${state.adapt.reviews.length}: ${review.sourceFile}`;
+    $("adaptSourcePlain").textContent = review.sourcePlainText || "(empty)";
+
+    const mapped = $("adaptMappedSlots");
+    mapped.innerHTML = "";
+    (review.slots || []).forEach((slot) => {
+      const el = document.createElement("div");
+      el.className = "preview-block";
+      el.innerHTML = `<div class="preview-marker">[[${esc(slot.path)}]]</div>
+        <div class="preview-value">${esc(slot.value || "(empty)")}</div>`;
+      mapped.appendChild(el);
+    });
+
+    const strip = $("adaptSlotStrip");
+    strip.innerHTML = "";
+    (review.slots || []).forEach((slot) => {
+      const row = document.createElement("div");
+      row.className = "adapt-slot-row";
+      row.innerHTML = `<code>${esc(slot.path)}</code>
+        <div class="muted-cell">${esc(slot.sourceExcerpt || "")}</div>
+        <div class="muted-cell">${esc(previewSample(slot.value) || "(empty)")}</div>`;
+      strip.appendChild(row);
+    });
+
+    const dl = $("adaptDownload");
+    dl.href = `/api/adapt/download/${encodeURIComponent(state.adapt.jobId)}/${encodeURIComponent(review.adaptedFile)}`;
+    dl.download = review.adaptedFile;
+
+    const key = review.adaptedFile;
+    $("adaptApprove").checked = !!state.adapt.approved[key];
+    $("adaptPrev").disabled = state.adapt.index <= 0;
+    $("adaptNext").disabled = state.adapt.index >= state.adapt.reviews.length - 1;
+  }
+
+  $("runAdapt").addEventListener("click", async () => {
+    const mappingId = $("adaptMapping").value;
+    if (!mappingId) {
+      alert("Select a mapping (or add JSON under input/source-mappings).");
+      return;
+    }
+    const fd = new FormData();
+    fd.append("mappingId", mappingId);
+    const files = $("adaptSources").files;
+    for (const f of files) fd.append("sources", f);
+    $("adaptStatus").textContent = "Adapting…";
+    try {
+      const result = await api("/api/adapt/run", { method: "POST", body: fd });
+      state.adapt.jobId = result.jobId;
+      state.adapt.reviews = result.reviews || [];
+      state.adapt.index = 0;
+      state.adapt.approved = {};
+      $("adaptStatus").textContent =
+        `Adapted ${state.adapt.reviews.length} file(s). Review side-by-side below.`;
+      $("adaptSources").value = "";
+      renderAdaptReview();
+    } catch (e) {
+      $("adaptStatus").textContent = e.message;
+      $("adaptReview").hidden = true;
+    }
+  });
+
+  $("adaptPrev").addEventListener("click", () => {
+    if (state.adapt.index > 0) {
+      state.adapt.index -= 1;
+      renderAdaptReview();
+    }
+  });
+  $("adaptNext").addEventListener("click", () => {
+    if (state.adapt.index < state.adapt.reviews.length - 1) {
+      state.adapt.index += 1;
+      renderAdaptReview();
+    }
+  });
+  $("adaptApprove").addEventListener("change", () => {
+    const review = currentAdaptReview();
+    if (!review) return;
+    if ($("adaptApprove").checked) {
+      state.adapt.approved[review.adaptedFile] = true;
+    } else {
+      delete state.adapt.approved[review.adaptedFile];
+    }
+  });
+
+  $("adaptSendArticles").addEventListener("click", async () => {
+    if (!state.selectedId) {
+      alert("Select a blueprint first so articles land under input/articles/<id>/.");
+      return;
+    }
+    if (!state.adapt.jobId) {
+      alert("Run adapt first.");
+      return;
+    }
+    const files = Object.keys(state.adapt.approved);
+    if (!files.length) {
+      alert("Approve at least one adapted file.");
+      return;
+    }
+    $("adaptSendStatus").textContent = "Copying…";
+    try {
+      const result = await api("/api/adapt/send-to-articles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId: state.adapt.jobId,
+          blueprintId: state.selectedId,
+          files,
+        }),
+      });
+      $("adaptSendStatus").textContent =
+        `Sent ${result.articles.length} file(s) to articles. Build package when ready.`;
+      await refreshReadiness();
+    } catch (e) {
+      $("adaptSendStatus").textContent = e.message;
+    }
+  });
+
+  loadAdaptMappings().catch(() => {});
   refreshList().catch((e) => alert(e.message));
 })();

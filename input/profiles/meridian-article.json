@@ -2,46 +2,6 @@
   "id" : "meridian-article",
   "blueprintJson" : "input/blueprint/page1.json",
   "fields" : [ {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "publishDateText",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "authorName",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "eyebrow",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "readTime",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "imageAlt",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "dek",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "image",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-article-hero",
-    "property" : "title",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_hero"
-  }, {
     "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
     "property" : "body",
     "format" : "HTML",
@@ -77,6 +37,11 @@
     "format" : "PLAIN",
     "path" : "/jcr:content/root/container/mig_head_2"
   }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-list",
+    "property" : "listType",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_list"
+  }, {
     "resourceType" : "my-aem-site53/components/meridian-article-heading",
     "property" : "anchorId",
     "format" : "PLAIN",
@@ -86,6 +51,11 @@
     "property" : "text",
     "format" : "PLAIN",
     "path" : "/jcr:content/root/container/mig_head_3"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-list",
+    "property" : "listType",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_list_2"
   }, {
     "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
     "property" : "body",
@@ -100,6 +70,11 @@
     "resourceType" : "my-aem-site53/components/meridian-article-callout",
     "property" : "body",
     "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_callout"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-callout",
+    "property" : "textIsRich",
+    "format" : "PLAIN",
     "path" : "/jcr:content/root/container/mig_callout"
   }, {
     "resourceType" : "my-aem-site53/components/meridian-article-callout",
@@ -121,26 +96,6 @@
     "property" : "body",
     "format" : "HTML",
     "path" : "/jcr:content/root/container/mig_par_4"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-author-card",
-    "property" : "dropInitial",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_author"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-author-card",
-    "property" : "authorName",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_author"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-author-card",
-    "property" : "label",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_author"
-  }, {
-    "resourceType" : "my-aem-site53/components/meridian-author-card",
-    "property" : "initials",
-    "format" : "PLAIN",
-    "path" : "/jcr:content/root/container/mig_author"
   } ],
   "pageFields" : [ {
     "property" : "/jcr:content/jcr:title",

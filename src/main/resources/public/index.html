@@ -21,6 +21,7 @@
     <nav class="tabs" role="tablist">
       <button type="button" class="tab active" data-tab="blueprints">Blueprints</button>
       <button type="button" class="tab" data-tab="generate" id="tabGenerate" disabled>Generate template</button>
+      <button type="button" class="tab" data-tab="adapt" id="tabAdapt">Adapt sources</button>
       <button type="button" class="tab" data-tab="build" id="tabBuild" disabled>Build package</button>
     </nav>
 
@@ -99,6 +100,46 @@
           <button type="button" id="uploadArticlesGenerate" class="btn">Upload articles</button>
           <p id="articlesGenerateStatus" class="status"></p>
           <ul id="articlesGenerateList" class="article-list muted"></ul>
+        </div>
+      </section>
+
+      <section id="panel-adapt" class="panel">
+        <h2>Adapt source docs (optional)</h2>
+        <p class="help">
+          Map raw client DOCX files onto a filled template using a source-mapping JSON.
+          Existing Generate / Upload articles / Build package work without this step.
+        </p>
+        <label>Mapping
+          <select id="adaptMapping"></select>
+        </label>
+        <label>Raw source DOCX (optional — leave empty to use <code>input/raw-source-docs</code>)
+          <input id="adaptSources" type="file" accept=".docx" multiple />
+        </label>
+        <button type="button" id="runAdapt" class="btn primary">Run adapt</button>
+        <p id="adaptStatus" class="status"></p>
+
+        <div id="adaptReview" class="adapt-review" hidden>
+          <div class="adapt-nav">
+            <button type="button" id="adaptPrev" class="btn ghost">Previous</button>
+            <span id="adaptIndex" class="adapt-index"></span>
+            <button type="button" id="adaptNext" class="btn ghost">Next</button>
+            <a id="adaptDownload" class="btn ghost" href="#">Download adapted</a>
+            <label class="adapt-approve"><input type="checkbox" id="adaptApprove" /> Approve for articles</label>
+          </div>
+          <div class="adapt-columns">
+            <div class="adapt-col">
+              <h3>Source</h3>
+              <pre id="adaptSourcePlain" class="adapt-plain"></pre>
+            </div>
+            <div class="adapt-col">
+              <h3>Mapped template slots</h3>
+              <div id="adaptMappedSlots" class="preview-blocks"></div>
+            </div>
+          </div>
+          <h3>Per-slot mapping</h3>
+          <div id="adaptSlotStrip" class="adapt-slot-strip"></div>
+          <button type="button" id="adaptSendArticles" class="btn primary">Send approved to articles</button>
+          <p id="adaptSendStatus" class="status"></p>
         </div>
       </section>
 
