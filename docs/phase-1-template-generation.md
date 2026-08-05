@@ -49,12 +49,10 @@ You do **not** need Word documents in `input/articles/` for Phase 1.
 
 ```java
 private static final String MODE = "generate-template";
-
 private static final String BLUEPRINT_KEY = "normal-page";
-
-private static final File BLUEPRINT =
-        new File("input/blueprint/page.json");
 ```
+
+Blueprint JSON path comes from `input/profiles/normal-page.json` (`blueprintJson`).
 
 3. From the project root:
 
@@ -68,12 +66,14 @@ mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.Main"
 input/templates/normal-page.docx
 ```
 
+Or use [Blueprint Studio](phase-4-blueprint-studio.md) (Generate template tab).
+
 ### Built-in combinations
 
-| `BLUEPRINT_KEY` | Blueprint JSON | Output DOCX |
-|-----------------|----------------|-------------|
-| `normal-page` | `input/blueprint/page.json` | `input/templates/normal-page.docx` |
-| `meridian-article` | `input/blueprint/page1.json` | `input/templates/meridian-article.docx` |
+| `BLUEPRINT_KEY` | Profile JSON | Blueprint JSON | Output DOCX |
+|-----------------|--------------|----------------|-------------|
+| `normal-page` | `input/profiles/normal-page.json` | `input/blueprint/page.json` | `input/templates/normal-page.docx` |
+| `meridian-article` | `input/profiles/meridian-article.json` | `input/blueprint/page1.json` | `input/templates/meridian-article.docx` |
 
 ---
 
@@ -165,6 +165,7 @@ EditableField.plain("/jcr:content/jcr:title")
 
 ## Related docs
 
-- [Writing blueprint profiles](writing-blueprint-profiles.md) — how to create `NormalPageProfile`-style classes
+- [Writing blueprint profiles](writing-blueprint-profiles.md) — JSON profiles under `input/profiles/`
+- [Phase 4: Blueprint Studio](phase-4-blueprint-studio.md) — UI for generate without editing `Main`
 - [Phase 2: Package pipeline](phase-2-package-pipeline.md) — DOCX → JSON → content package
 - [Project README](../README.md) — full pipeline overview

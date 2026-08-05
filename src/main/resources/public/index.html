@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Blueprint Studio</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="brand-mark">BS</span>
+        <div>
+          <h1>Blueprint Studio</h1>
+          <p class="tagline help-block">Local AEM bulk authoring — no Java coding required</p>
+        </div>
+      </div>
+      <button type="button" id="settingsToggle" class="btn-icon" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M12 1v2.5M12 20.5V23M4.2 4.2l1.8 1.8M18 18l1.8 1.8M1 12h2.5M20.5 12H23M4.2 19.8l1.8-1.8M18 6l1.8-1.8" />
+        </svg>
+      </button>
+    </header>
+
+    <aside id="settingsPanel" class="settings-panel" hidden>
+      <div class="settings-panel-head">
+        <h2>Settings</h2>
+        <button type="button" id="settingsClose" class="btn ghost">Close</button>
+      </div>
+      <p class="settings-presets-label">Presets</p>
+      <div class="settings-presets">
+        <button type="button" id="presetDaily" class="btn">Daily authoring</button>
+        <button type="button" id="presetFull" class="btn">Full setup</button>
+      </div>
+      <label class="settings-row">
+        <span>Show Generate template</span>
+        <input type="checkbox" id="setShowGenerate" />
+      </label>
+      <label class="settings-row">
+        <span>Show Adapt sources</span>
+        <input type="checkbox" id="setShowAdapt" />
+      </label>
+      <label class="settings-row">
+        <span>Show create / upload</span>
+        <input type="checkbox" id="setShowCreate" />
+      </label>
+      <label class="settings-row">
+        <span>Show help text</span>
+        <input type="checkbox" id="setShowHelp" />
+      </label>
+      <label class="settings-row settings-row-stack">
+        <span>Default package name</span>
+        <input type="text" id="setDefaultPackage" placeholder="bulk-content" />
+      </label>
+      <p class="settings-presets-label">Local AEM Author</p>
+      <label class="settings-row settings-row-stack">
+        <span>AEM base URL</span>
+        <input type="text" id="setAemBaseUrl" placeholder="http://localhost:4502" />
+      </label>
+      <label class="settings-row settings-row-stack">
+        <span>AEM username</span>
+        <input type="text" id="setAemUsername" placeholder="admin" autocomplete="username" />
+      </label>
+      <label class="settings-row settings-row-stack">
+        <span>AEM password</span>
+        <input type="password" id="setAemPassword" placeholder="admin" autocomplete="current-password" />
+      </label>
+      <p id="settingsStatus" class="status"></p>
+      <button type="button" id="settingsSave" class="btn primary">Save settings</button>
+    </aside>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="blueprints">Blueprints</button>
+      <button type="button" class="tab" data-tab="generate" id="tabGenerate" disabled>Generate template</button>
+      <button type="button" class="tab" data-tab="adapt" id="tabAdapt">Adapt sources</button>
+      <button type="button" class="tab" data-tab="build" id="tabBuild" disabled>Build package</button>
+    </nav>
+
+    <p id="readinessHint" class="hint help-block" hidden></p>
+
+    <main>
+      <section id="panel-blueprints" class="panel active">
+        <div class="split">
+          <div class="card-block">
+            <h2>Saved blueprints</h2>
+            <p class="help help-block">Click to load. Click the same one again to clear and start a new blueprint.</p>
+            <ul id="blueprintList" class="list"></ul>
+            <button type="button" id="newBlueprint" class="btn ghost">New blueprint</button>
+            <button type="button" id="refreshList" class="btn ghost">Refresh</button>
+          </div>
+          <div class="card-block">
+            <h2>Create / edit</h2>
+            <ol class="steps">
+              <li id="createBlueprintSection">
+                <h3>1. Create blueprint</h3>
+                <p class="help help-block">Upload JSON + FileVault zip, or fetch both from local AEM Author (credentials in Settings).</p>
+                <div class="mode-toggle" role="radiogroup" aria-label="Create mode">
+                  <label class="mode-option"><input type="radio" name="createMode" value="upload" checked /> Upload files</label>
+                  <label class="mode-option"><input type="radio" name="createMode" value="aem" /> Fetch from AEM</label>
+                </div>
+                <label>Name <input id="bpName" type="text" placeholder="normal-page" /></label>
+                <div id="createModeUpload">
+                  <div class="json-sources">
+                    <label class="json-source">
+                      Upload JSON file
+                      <input id="bpJson" type="file" accept=".json,application/json" />
+                    </label>
+                    <label class="json-source">
+                      Or paste JSON
+                      <textarea id="bpJsonPaste" rows="8" placeholder='{ "jcr:primaryType": "cq:Page", ... }'></textarea>
+                    </label>
+                  </div>
+                  <label>FileVault zip <input id="bpZip" type="file" accept=".zip,application/zip" /></label>
+                </div>
+                <div id="createModeAem" hidden>
+                  <label>Page URL
+                    <input id="bpPageUrl" type="text" placeholder="http://localhost:4502/content/.../page.html" />
+                  </label>
+                </div>
+                <button type="button" id="createBp" class="btn primary">Upload &amp; derive</button>
+                <p id="createBpStatus" class="status"></p>
+              </li>
+              <li>
+                <h3 id="derivedStepTitle">2. Derived package paths</h3>
+                <div id="derivedBox" class="derived muted">Upload a package to derive paths.</div>
+                <label class="adv"><input type="checkbox" id="advToggle" /> Advanced edit</label>
+                <div id="advFields" class="adv-fields" hidden>
+                  <label>contentParentPath <input id="contentParentPath" type="text" /></label>
+                  <label>samplePageName <input id="samplePageName" type="text" /></label>
+                  <label>packageName <input id="packageName" type="text" /></label>
+                  <label>vaultPackageDir <input id="vaultPackageDir" type="text" /></label>
+                  <button type="button" id="savePackage" class="btn">Save package config</button>
+                </div>
+              </li>
+              <li>
+                <h3 id="pickerStepTitle">3. Component picker</h3>
+                <p class="help help-block">Select a whole component and/or individual fields. Only chosen items appear in the Word template. Containers are hidden.</p>
+                <div id="picker" class="picker muted">Select a blueprint to load components.</div>
+                <button type="button" id="saveFields" class="btn primary" disabled>Save selection</button>
+              </li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section id="panel-generate" class="panel">
+        <h2>Generate template</h2>
+        <p class="help-block">Creates an editable Word template from the selected blueprint. No articles needed for this step.</p>
+        <p id="generateStatus" class="status"></p>
+        <button type="button" id="runGenerate" class="btn primary">Generate</button>
+        <a id="downloadTemplate" class="btn ghost" hidden href="#">Download DOCX</a>
+
+        <div id="templatePreview" class="preview-panel" hidden>
+          <h3>Template preview</h3>
+          <p class="help help-block">Markers and seed values written into the DOCX — verify before sharing with authors.</p>
+          <div id="previewBlocks" class="preview-blocks"></div>
+        </div>
+
+        <div class="articles-panel">
+          <h3>Upload articles</h3>
+          <p class="help help-block">After authors fill copies of the template, upload the `.docx` files here (also available on Build package).</p>
+          <label>Article DOCX files <input id="articlesGenerate" type="file" accept=".docx" multiple /></label>
+          <button type="button" id="uploadArticlesGenerate" class="btn">Upload articles</button>
+          <p id="articlesGenerateStatus" class="status"></p>
+          <ul id="articlesGenerateList" class="article-list muted"></ul>
+        </div>
+      </section>
+
+      <section id="panel-adapt" class="panel">
+        <h2>Adapt sources</h2>
+        <p class="help help-block">
+          Map raw client DOCX files onto a filled template using a source-mapping JSON.
+          Existing Generate / Upload articles / Build package work without this step.
+        </p>
+        <label>Mapping
+          <select id="adaptMapping"></select>
+        </label>
+        <label>Raw source DOCX (optional — leave empty to use <code>input/raw-source-docs</code>)
+          <input id="adaptSources" type="file" accept=".docx" multiple />
+        </label>
+        <button type="button" id="runAdapt" class="btn primary">Run adapt</button>
+        <p id="adaptStatus" class="status"></p>
+
+        <div id="adaptReview" class="adapt-review" hidden>
+          <div class="adapt-nav">
+            <button type="button" id="adaptPrev" class="btn ghost">Previous</button>
+            <span id="adaptIndex" class="adapt-index"></span>
+            <button type="button" id="adaptNext" class="btn ghost">Next</button>
+            <a id="adaptDownload" class="btn ghost" href="#">Download adapted</a>
+            <label class="adapt-approve"><input type="checkbox" id="adaptApprove" /> Approve for articles</label>
+          </div>
+          <div class="adapt-columns">
+            <div class="adapt-col">
+              <h3>Source</h3>
+              <pre id="adaptSourcePlain" class="adapt-plain"></pre>
+            </div>
+            <div class="adapt-col">
+              <h3>Mapped template slots</h3>
+              <div id="adaptMappedSlots" class="preview-blocks"></div>
+            </div>
+          </div>
+          <h3>Per-slot mapping</h3>
+          <div id="adaptSlotStrip" class="adapt-slot-strip"></div>
+          <button type="button" id="adaptSendArticles" class="btn primary">Send approved to articles</button>
+          <p id="adaptSendStatus" class="status"></p>
+        </div>
+      </section>
+
+      <section id="panel-build" class="panel">
+        <h2>Build package</h2>
+        <p class="help-block">Upload authored article DOCX files (if not already uploaded), then build an installable FileVault zip.</p>
+        <div class="articles-panel">
+          <h3>Articles for this blueprint</h3>
+          <label>Upload article DOCX <input id="articles" type="file" accept=".docx" multiple /></label>
+          <button type="button" id="uploadArticlesBuild" class="btn">Upload articles</button>
+          <p id="articlesBuildStatus" class="status"></p>
+          <ul id="articlesBuildList" class="article-list muted"></ul>
+        </div>
+        <p id="buildStatus" class="status"></p>
+        <p id="buildMissing" class="hint"></p>
+        <button type="button" id="runBuild" class="btn primary">Build package</button>
+        <a id="downloadPackage" class="btn ghost" hidden href="#">Download zip</a>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

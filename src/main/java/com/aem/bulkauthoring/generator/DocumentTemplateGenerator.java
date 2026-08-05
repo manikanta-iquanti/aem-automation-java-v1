@@ -45,7 +45,7 @@ public class DocumentTemplateGenerator {
 
             for (BlueprintComponent component : blueprint.getComponents()) {
                 List<EditableField> fields =
-                        profile.fieldsFor(component.getResourceType());
+                        profile.fieldsFor(component.getResourceType(), component.getPath());
 
                 for (EditableField field : fields) {
                     String marker = field.isAbsolute()

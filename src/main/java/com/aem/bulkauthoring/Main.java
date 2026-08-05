@@ -1,159 +1,55 @@
 package com.aem.bulkauthoring;
 
-import com.aem.bulkauthoring.analyzer.BlueprintAnalyzer;
 import com.aem.bulkauthoring.blueprint.BlueprintProfileRegistry;
 import com.aem.bulkauthoring.blueprint.BlueprintTemplateProfile;
-import com.aem.bulkauthoring.blueprint.FieldFormat;
-import com.aem.bulkauthoring.blueprint.PathFormatIndex;
-import com.aem.bulkauthoring.generator.DocumentTemplateGenerator;
-import com.aem.bulkauthoring.model.Blueprint;
-import com.aem.bulkauthoring.model.document.DocumentBlock;
-import com.aem.bulkauthoring.packagebuilder.PackageBuilder;
-import com.aem.bulkauthoring.packagebuilder.PageArtifact;
-import com.aem.bulkauthoring.parser.DocumentParser;
-import com.aem.bulkauthoring.updater.BlueprintUpdater;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.aem.bulkauthoring.service.BulkAuthoringService;
 
 import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
 
+/**
+ * CLI entry point for Phase 1 / Phase 2. Prefer Blueprint Studio for non-tech flows:
+ * {@code com.aem.bulkauthoring.studio.StudioMain}.
+ */
 public class Main {
 
     // private static final String MODE = "generate-template";
     private static final String MODE = "parse-document";
 
     /**
-     * Blueprint profile key — must match {@link BlueprintProfileRegistry}.
-     * Use {@code normal-page} + page.json, or {@code meridian-article} + page1.json.
+     * Blueprint profile key — must match a JSON file under {@code input/profiles/}.
      */
     private static final String BLUEPRINT_KEY = "normal-page";
-
-    private static final File BLUEPRINT =
-            new File("input/blueprint/page.json");
-    // private static final File BLUEPRINT =
-    //         new File("input/blueprint/page1.json");
 
     private static final File ARTICLES_DIR =
             new File("input/articles");
 
     public static void main(String[] args) {
+        BulkAuthoringService service = new BulkAuthoringService();
 
         switch (MODE) {
-
             case "generate-template":
-                generateTemplate();
+                File template = service.generateTemplate(BLUEPRINT_KEY);
+                BlueprintTemplateProfile profile =
+                        BlueprintProfileRegistry.get(BLUEPRINT_KEY);
+                System.out.println();
+                System.out.println("Template generated: " + template.getPath());
+                System.out.println("Profile: " + profile.id());
                 break;
 
             case "parse-document":
-                parseDocumentsAndBuildPackage();
+                File zip = service.buildPackage(BLUEPRINT_KEY, ARTICLES_DIR);
+                BlueprintTemplateProfile pkgProfile =
+                        BlueprintProfileRegistry.get(BLUEPRINT_KEY);
+                System.out.println();
+                System.out.println("Profile: " + pkgProfile.id());
+                System.out.println("Updated blueprints written under:");
+                System.out.println(new File("output/pages").getAbsolutePath());
+                System.out.println("Install package:");
+                System.out.println(zip.getAbsolutePath());
                 break;
 
             default:
                 System.out.println("Unknown mode.");
         }
-    }
-
-    private static void generateTemplate() {
-
-        BlueprintTemplateProfile profile =
-                BlueprintProfileRegistry.get(BLUEPRINT_KEY);
-
-        Blueprint blueprint =
-                new BlueprintAnalyzer().analyze(BLUEPRINT);
-
-        String outputFile =
-                "input/templates/" + profile.id() + ".docx";
-
-        new DocumentTemplateGenerator()
-                .generate(blueprint, profile, BLUEPRINT, outputFile);
-
-        System.out.println();
-        System.out.println("Template generated: " + outputFile);
-        System.out.println("Profile: " + profile.id());
-    }
-
-    private static void parseDocumentsAndBuildPackage() {
-
-        BlueprintTemplateProfile profile =
-                BlueprintProfileRegistry.get(BLUEPRINT_KEY);
-
-        Blueprint analyzed =
-                new BlueprintAnalyzer().analyze(BLUEPRINT);
-
-        Map<String, FieldFormat> formats =
-                PathFormatIndex.build(analyzed, profile);
-
-        File[] docs = ARTICLES_DIR.listFiles(
-                (dir, name) -> name.toLowerCase().endsWith(".docx")
-                        && !name.startsWith("~$"));
-
-        if (docs == null || docs.length == 0) {
-            throw new IllegalStateException(
-                    "No .docx files found in " + ARTICLES_DIR.getPath());
-        }
-
-        Arrays.sort(docs, Comparator.comparing(File::getName));
-
-        DocumentParser parser = new DocumentParser();
-        BlueprintUpdater updater = new BlueprintUpdater();
-        ObjectMapper mapper = new ObjectMapper();
-        List<PageArtifact> pages = new ArrayList<>();
-
-        File pagesDir = new File("output/pages");
-        pagesDir.mkdirs();
-
-        for (File doc : docs) {
-            String pageName = sanitizePageName(stripExtension(doc.getName()));
-
-            List<DocumentBlock> blocks = parser.parse(doc.getPath());
-
-            File updatedJson = new File(pagesDir, pageName + ".json");
-            updater.update(BLUEPRINT, blocks, updatedJson, formats);
-
-            try {
-                JsonNode pageRoot = mapper.readTree(updatedJson);
-                pages.add(new PageArtifact(pageName, pageRoot));
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to read updated blueprint: "
-                        + updatedJson, e);
-            }
-
-            System.out.println("Prepared page: " + pageName
-                    + " from " + doc.getName());
-        }
-
-        File zip = new PackageBuilder().build(pages, profile.packageConfig());
-
-        System.out.println();
-        System.out.println("Profile: " + profile.id());
-        System.out.println("Updated blueprints written under:");
-        System.out.println(pagesDir.getAbsolutePath());
-        System.out.println("Install package:");
-        System.out.println(zip.getAbsolutePath());
-    }
-
-    private static String stripExtension(String filename) {
-        int dot = filename.lastIndexOf('.');
-        return dot > 0 ? filename.substring(0, dot) : filename;
-    }
-
-    private static String sanitizePageName(String name) {
-        String sanitized = name.trim()
-                .toLowerCase()
-                .replaceAll("[^a-z0-9-_]+", "-")
-                .replaceAll("-{2,}", "-")
-                .replaceAll("^-|-$", "");
-
-        if (sanitized.isEmpty()) {
-            throw new IllegalArgumentException("Invalid page name from: " + name);
-        }
-
-        return sanitized;
     }
 }

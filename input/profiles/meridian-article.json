@@ -1,0 +1,110 @@
+{
+  "id" : "meridian-article",
+  "blueprintJson" : "input/blueprint/page1.json",
+  "fields" : [ {
+    "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
+    "property" : "body",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_par"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "anchorId",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "text",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "level",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
+    "property" : "body",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_par_2"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "anchorId",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_2"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "text",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_2"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-list",
+    "property" : "listType",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_list"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "anchorId",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_3"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "text",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_3"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-list",
+    "property" : "listType",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_list_2"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
+    "property" : "body",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_par_3"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-callout",
+    "property" : "eyebrow",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_callout"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-callout",
+    "property" : "body",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_callout"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-callout",
+    "property" : "textIsRich",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_callout"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-callout",
+    "property" : "initial",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_callout"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "anchorId",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_4"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-heading",
+    "property" : "text",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/mig_head_4"
+  }, {
+    "resourceType" : "my-aem-site53/components/meridian-article-paragraph",
+    "property" : "body",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/mig_par_4"
+  } ],
+  "pageFields" : [ {
+    "property" : "/jcr:content/jcr:title",
+    "format" : "PLAIN"
+  } ],
+  "package" : {
+    "vaultPackageDir" : "input/blueprint-xml/poc-3",
+    "contentParentPath" : "/content/my-aem-site53/us/en/articles",
+    "samplePageName" : "vietnam-central-coast-train",
+    "packageName" : "bulk-articles"
+  }
+}

@@ -57,13 +57,13 @@ In [`Main.java`](../src/main/java/com/aem/bulkauthoring/Main.java):
 ```java
 private static final String MODE = "parse-document";
 private static final String BLUEPRINT_KEY = "normal-page";
-private static final File BLUEPRINT =
-        new File("input/blueprint/page.json");
 ```
 
 ```bash
 mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.Main"
 ```
+
+Or use [Blueprint Studio](phase-4-blueprint-studio.md) (Build package tab).
 
 Outputs:
 

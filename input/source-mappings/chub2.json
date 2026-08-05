@@ -1,0 +1,33 @@
+{
+  "id": "usb-content-hub-normal-page",
+  "strategy": "rule-engine",
+  "targetTemplate": "input/templates/qq.docx",
+  "sourceDir": "input/raw-source-docs",
+  "outputDir": "output/adapted-articles",
+  "slots": [
+    {
+      "path": "/jcr:content/jcr:title",
+      "extract": {
+        "type": "tableRowValue",
+        "sectionContains": "Headline",
+        "labelContains": "*H1",
+        "valueColumn": 1
+      }
+    },
+    {
+      "path": "/jcr:content/root/container/container/text/text",
+      "extract": {
+        "type": "elementSequenceHtml",
+        "startAfterSectionContains": "*Body",
+        "stopBeforeSectionContains": "Disclosure",
+        "elementColumn": 0,
+        "contentColumn": 1,
+        "tagMap": {
+          "p-text": "p",
+          "H2": "h2",
+          "Unordered list": "ul"
+        }
+      }
+    }
+  ]
+}

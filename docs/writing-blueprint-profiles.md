@@ -1,17 +1,19 @@
 # Writing blueprint profiles
 
-A **profile** tells the template engine which parts of a blueprint JSON page should become editable blocks in Word. Every new page type / template gets its own profile class.
+A **profile** tells the template engine which parts of a blueprint JSON page should become editable blocks in Word. Every new page type / template gets its own profile.
 
-Reference implementations:
+**Preferred:** create profiles as JSON under `input/profiles/` (or use [Blueprint Studio](phase-4-blueprint-studio.md)). Samples:
 
-- [`NormalPageProfile.java`](../src/main/java/com/aem/bulkauthoring/blueprint/profiles/NormalPageProfile.java) — simple page (`page.json`)
-- [`MeridianArticleProfile.java`](../src/main/java/com/aem/bulkauthoring/blueprint/profiles/MeridianArticleProfile.java) — Meridian article (`page1.json`)
+- [`input/profiles/normal-page.json`](../input/profiles/normal-page.json) — simple page (`page.json`)
+- [`input/profiles/meridian-article.json`](../input/profiles/meridian-article.json) — Meridian article (`page1.json`)
+
+Loaded by [`JsonBlueprintProfile`](../src/main/java/com/aem/bulkauthoring/blueprint/JsonBlueprintProfile.java) via [`BlueprintProfileRegistry`](../src/main/java/com/aem/bulkauthoring/blueprint/BlueprintProfileRegistry.java).
 
 ---
 
 ## Interface contract
 
-Implement [`BlueprintTemplateProfile`](../src/main/java/com/aem/bulkauthoring/blueprint/BlueprintTemplateProfile.java):
+Profiles implement [`BlueprintTemplateProfile`](../src/main/java/com/aem/bulkauthoring/blueprint/BlueprintTemplateProfile.java):
 
 ```java
 public interface BlueprintTemplateProfile {
@@ -19,11 +21,16 @@ public interface BlueprintTemplateProfile {
     /** Stable key used in Main + registry + output filename. */
     String id();
 
+    /** Path to the blueprint infinity JSON. */
+    File blueprintJson();
+
     /** Editable fields for one sling:resourceType (empty = skip). */
     List<EditableField> fieldsFor(String resourceType);
 
     /** Optional page-level absolute paths (default: none). */
     default List<EditableField> pageFields() { ... }
+
+    BlueprintPackageConfig packageConfig();
 }
 ```
 
@@ -255,25 +262,15 @@ public class ProductLandingProfile implements BlueprintTemplateProfile {
 }
 ```
 
-### Step B — Register the profile
+### Step B — Drop the JSON profile
 
-Edit [`BlueprintProfileRegistry.java`](../src/main/java/com/aem/bulkauthoring/blueprint/BlueprintProfileRegistry.java):
+Save as `input/profiles/product-landing.json`. The registry scans that folder on startup and on `reload()` (Studio calls reload after save). No Java registration edit needed.
 
-```java
-static {
-    register(new NormalPageProfile());
-    register(new MeridianArticleProfile());
-    register(new ProductLandingProfile());  // add this
-}
-```
-
-### Step C — Point Main at it
+### Step C — Point Main at it (CLI only)
 
 ```java
 private static final String MODE = "generate-template";
 private static final String BLUEPRINT_KEY = "product-landing";
-private static final File BLUEPRINT =
-        new File("input/blueprint/product-landing.json");
 ```
 
 ### Step D — Generate
@@ -287,6 +284,8 @@ Output:
 ```text
 input/templates/product-landing.docx
 ```
+
+Prefer [Blueprint Studio](phase-4-blueprint-studio.md) for upload + field picker without hand-editing JSON.
 
 ---
 
@@ -373,23 +372,26 @@ Then:
 ## Where files live
 
 ```text
+input/profiles/
+├── normal-page.json               ← sample JSON profile
+├── meridian-article.json
+└── your-new-profile.json          ← add new profiles here
+
 src/main/java/com/aem/bulkauthoring/blueprint/
-├── BlueprintTemplateProfile.java      ← interface + developer checklist (Javadoc)
-├── BlueprintPackageConfig.java        ← vault scaffold + install paths (Phase 2)
-├── PathFormatIndex.java               ← path → FieldFormat for JSON write-back
+├── BlueprintTemplateProfile.java  ← interface
+├── JsonBlueprintProfile.java      ← loads input/profiles/*.json
+├── BlueprintPackageConfig.java    ← vault scaffold + install paths (Phase 2)
+├── PathFormatIndex.java           ← path → FieldFormat for JSON write-back
 ├── EditableField.java
-├── FieldFormat.java                   ← PLAIN / HTML / LIST
-├── BlueprintProfileRegistry.java      ← register every profile here
-└── profiles/
-    ├── NormalPageProfile.java
-    ├── MeridianArticleProfile.java
-    └── YourNewProfile.java            ← add new profiles here
+├── FieldFormat.java               ← PLAIN / HTML / LIST
+└── BlueprintProfileRegistry.java  ← scans input/profiles/, reload() after UI save
 ```
 
 ---
 
 ## Related docs
 
+- [Phase 4: Blueprint Studio](phase-4-blueprint-studio.md) — preferred non-tech path
 - [Phase 1: Template generation](phase-1-template-generation.md) — inputs, run steps, troubleshooting
 - [Phase 2: Package pipeline](phase-2-package-pipeline.md) — DOCX → JSON → content package
 - [Project README](../README.md)
