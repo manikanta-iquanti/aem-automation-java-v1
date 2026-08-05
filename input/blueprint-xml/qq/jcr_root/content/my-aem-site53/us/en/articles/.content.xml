@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:cq="http://www.day.com/jcr/cq/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0"
+    jcr:primaryType="cq:Page">
+    <jcr:content/>
+    <ar2/>
+    <The-Blue-Hour-in-Santorini/>
+    <copenhagen-harbour-walk/>
+    <lisbon-tram-notes/>
+    <vietnam-central-coast-train/>
+    <marrakech-souks/>
+    <normal-page1/>
+</jcr:root>

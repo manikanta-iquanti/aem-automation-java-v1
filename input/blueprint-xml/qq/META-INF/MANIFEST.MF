@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Content-Package-Id: studio:studio-fetch-d1ed502371d0
+Content-Package-Roots: /content/my-aem-site53/us/en/articles/normal-page
+ 1
+Content-Package-Type: content
+

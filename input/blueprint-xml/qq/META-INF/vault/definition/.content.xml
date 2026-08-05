@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jcr:root xmlns:vlt="http://www.day.com/jcr/vault/1.0" xmlns:jcr="http://www.jcp.org/jcr/1.0" xmlns:nt="http://www.jcp.org/jcr/nt/1.0"
+    jcr:created="{Date}2026-08-05T16:17:26.146+05:30"
+    jcr:createdBy="admin"
+    jcr:lastModified="{Date}2026-08-05T16:17:26.146+05:30"
+    jcr:lastModifiedBy="admin"
+    jcr:primaryType="vlt:PackageDefinition"
+    buildCount="1"
+    builtWith="Adobe Experience Manager-6.5.21.0"
+    group="studio"
+    lastUnwrapped="{Date}2026-08-05T16:17:26.146+05:30"
+    lastUnwrappedBy="admin"
+    lastWrapped="{Date}2026-08-05T16:17:26.146+05:30"
+    lastWrappedBy="admin"
+    name="studio-fetch-d1ed502371d0"
+    version="">
+    <filter jcr:primaryType="nt:unstructured">
+        <f0
+            jcr:primaryType="nt:unstructured"
+            mode="replace"
+            root="/content/my-aem-site53/us/en/articles/normal-page1"
+            rules="[]"/>
+    </filter>
+</jcr:root>

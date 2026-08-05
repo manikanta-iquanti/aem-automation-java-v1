@@ -1,0 +1,25 @@
+{
+  "id" : "qq",
+  "blueprintJson" : "input/blueprint/qq.json",
+  "fields" : [ {
+    "resourceType" : "my-aem-site53/components/text",
+    "property" : "text",
+    "format" : "HTML",
+    "path" : "/jcr:content/root/container/container/text"
+  }, {
+    "resourceType" : "my-aem-site53/components/text",
+    "property" : "textIsRich",
+    "format" : "PLAIN",
+    "path" : "/jcr:content/root/container/container/text"
+  } ],
+  "pageFields" : [ {
+    "property" : "/jcr:content/jcr:title",
+    "format" : "PLAIN"
+  } ],
+  "package" : {
+    "vaultPackageDir" : "input/blueprint-xml/qq",
+    "contentParentPath" : "/content/my-aem-site53/us/en/articles",
+    "samplePageName" : "normal-page1",
+    "packageName" : "bulk-content"
+  }
+}

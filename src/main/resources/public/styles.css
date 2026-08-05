@@ -73,13 +73,135 @@ body {
   font-size: 0.95rem;
 }
 
-.settings-inline {
+.btn-icon {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.btn-icon:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.settings-panel {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: rgba(26, 35, 50, 0.72);
+}
+
+.settings-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.settings-panel-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+}
+
+.settings-presets-label {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.settings-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.settings-row {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.95rem;
+}
+
+.settings-row input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent);
+}
+
+.settings-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.settings-row-stack input[type="text"],
+.settings-row-stack input[type="password"] {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.mode-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  margin: 0.5rem 0 0.85rem;
+}
+
+.mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.mode-option input {
+  accent-color: var(--accent);
+}
+
+#createModeAem label,
+#createModeUpload label {
+  display: block;
+}
+
+#createModeAem input[type="text"] {
+  width: 100%;
+  margin-top: 0.35rem;
+}
+
+.tab[hidden],
+#createBlueprintSection[hidden] {
+  display: none !important;
+}
+
+/* Help / instructional copy off by default; enabled via body.show-help */
+.help-block {
+  display: none;
+}
+
+body.show-help .help-block {
+  display: block;
+}
+
+body.show-help .tagline.help-block {
+  display: block;
 }
 
 .tabs {

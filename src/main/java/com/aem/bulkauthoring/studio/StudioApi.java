@@ -2,6 +2,7 @@ package com.aem.bulkauthoring.studio;
 
 import com.aem.bulkauthoring.docadapt.DocAdaptService;
 import com.aem.bulkauthoring.docadapt.review.AdaptReviewModel;
+import com.aem.bulkauthoring.studio.aem.AemAuthorClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -10,6 +11,7 @@ import io.javalin.Javalin;
 import io.javalin.http.UploadedFile;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -65,6 +67,45 @@ public final class StudioApi {
                 ctx.status(400).json(error(e.getMessage()));
             } catch (com.fasterxml.jackson.core.JsonParseException e) {
                 ctx.status(400).json(error("Pasted content is not valid JSON"));
+            }
+        });
+
+        app.post("/api/blueprints/from-aem", ctx -> {
+            JsonNode body = mapper.readTree(ctx.body());
+            String name = body.has("name") ? body.get("name").asText() : null;
+            String pageUrl = body.has("pageUrl") ? body.get("pageUrl").asText() : null;
+            if (pageUrl == null || pageUrl.isBlank()) {
+                ctx.status(400).json(error("pageUrl is required"));
+                return;
+            }
+            StudioSettings settings = StudioSettings.load();
+            AemAuthorClient aem = new AemAuthorClient(
+                    settings.getAemBaseUrl(),
+                    settings.getAemUsername(),
+                    settings.getAemPassword());
+            try {
+                String path = AemAuthorClient.normalizeContentPath(pageUrl);
+                String idHint = (name == null || name.isBlank())
+                        ? path.substring(path.lastIndexOf('/') + 1)
+                        : name;
+                try (InputStream jsonIn = aem.fetchInfinityJsonStream(pageUrl);
+                     InputStream zipIn = aem.exportPagePackageStream(pageUrl)) {
+                    Map<String, Object> created = studio.createBlueprint(
+                            idHint,
+                            jsonIn,
+                            idHint + ".json",
+                            zipIn,
+                            idHint + ".zip"
+                    );
+                    ctx.status(201).json(created);
+                }
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(error(e.getMessage()));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                ctx.status(500).json(error("Interrupted while contacting AEM"));
+            } catch (IOException e) {
+                ctx.status(502).json(error(e.getMessage()));
             }
         });
 
@@ -216,18 +257,15 @@ public final class StudioApi {
         });
 
         app.get("/api/settings", ctx -> {
-            StudioSettings settings = StudioSettings.load();
-            ctx.json(Map.of("defaultPackageName", settings.getDefaultPackageName()));
+            ctx.json(StudioSettings.load().toMap());
         });
 
         app.put("/api/settings", ctx -> {
             JsonNode body = mapper.readTree(ctx.body());
             StudioSettings settings = StudioSettings.load();
-            if (body.has("defaultPackageName")) {
-                settings.setDefaultPackageName(body.get("defaultPackageName").asText());
-            }
+            settings.applyFrom(body);
             settings.save();
-            ctx.json(Map.of("defaultPackageName", settings.getDefaultPackageName()));
+            ctx.json(settings.toMap());
         });
 
         app.get("/api/blueprints/{id}/download/template", ctx -> {

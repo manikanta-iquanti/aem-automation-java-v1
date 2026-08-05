@@ -1,0 +1,10 @@
+{
+  "defaultPackageName" : "bulk-content",
+  "showGenerateTab" : true,
+  "showAdaptTab" : true,
+  "showCreateBlueprint" : true,
+  "showHelpText" : true,
+  "aemBaseUrl" : "http://localhost:8080",
+  "aemUsername" : "admin",
+  "aemPassword" : "admin"
+}

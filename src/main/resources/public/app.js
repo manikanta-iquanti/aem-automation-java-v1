@@ -2,6 +2,16 @@
   const state = {
     selectedId: null,
     readiness: null,
+    settings: {
+      defaultPackageName: "bulk-content",
+      showGenerateTab: false,
+      showAdaptTab: false,
+      showCreateBlueprint: true,
+      showHelpText: false,
+      aemBaseUrl: "http://localhost:4502",
+      aemUsername: "admin",
+      aemPassword: "admin",
+    },
     adapt: {
       jobId: null,
       reviews: [],
@@ -62,11 +72,126 @@
     });
   }
 
+  function activeTabName() {
+    const active = document.querySelector(".tab.active");
+    return active ? active.dataset.tab : "blueprints";
+  }
+
+  function applyUiSettings(settings) {
+    state.settings = {
+      defaultPackageName: settings.defaultPackageName || "bulk-content",
+      showGenerateTab: !!settings.showGenerateTab,
+      showAdaptTab: !!settings.showAdaptTab,
+      showCreateBlueprint: settings.showCreateBlueprint !== false,
+      showHelpText: !!settings.showHelpText,
+      aemBaseUrl: settings.aemBaseUrl || "http://localhost:4502",
+      aemUsername: settings.aemUsername || "admin",
+      aemPassword: settings.aemPassword != null ? settings.aemPassword : "admin",
+    };
+
+    const s = state.settings;
+    document.body.classList.toggle("show-help", s.showHelpText);
+
+    const tabGenerate = $("tabGenerate");
+    const tabAdapt = $("tabAdapt");
+    tabGenerate.hidden = !s.showGenerateTab;
+    tabAdapt.hidden = !s.showAdaptTab;
+
+    const createSection = $("createBlueprintSection");
+    createSection.hidden = !s.showCreateBlueprint;
+    $("derivedStepTitle").textContent = s.showCreateBlueprint
+      ? "2. Derived package paths"
+      : "1. Derived package paths";
+    $("pickerStepTitle").textContent = s.showCreateBlueprint
+      ? "3. Component picker"
+      : "2. Component picker";
+
+    fillSettingsFormFromState();
+
+    const current = activeTabName();
+    if ((current === "generate" && !s.showGenerateTab)
+        || (current === "adapt" && !s.showAdaptTab)) {
+      showTab("blueprints");
+    }
+
+    refreshReadiness().catch(() => {});
+  }
+
+  function fillSettingsFormFromState() {
+    const s = state.settings;
+    $("setShowGenerate").checked = s.showGenerateTab;
+    $("setShowAdapt").checked = s.showAdaptTab;
+    $("setShowCreate").checked = s.showCreateBlueprint;
+    $("setShowHelp").checked = s.showHelpText;
+    $("setDefaultPackage").value = s.defaultPackageName;
+    $("setAemBaseUrl").value = s.aemBaseUrl;
+    $("setAemUsername").value = s.aemUsername;
+    $("setAemPassword").value = s.aemPassword;
+  }
+
+  function settingsFromForm() {
+    return {
+      defaultPackageName: $("setDefaultPackage").value.trim() || "bulk-content",
+      showGenerateTab: $("setShowGenerate").checked,
+      showAdaptTab: $("setShowAdapt").checked,
+      showCreateBlueprint: $("setShowCreate").checked,
+      showHelpText: $("setShowHelp").checked,
+      aemBaseUrl: $("setAemBaseUrl").value.trim() || "http://localhost:4502",
+      aemUsername: $("setAemUsername").value.trim() || "admin",
+      aemPassword: $("setAemPassword").value,
+    };
+  }
+
+  function setSettingsOpen(open) {
+    $("settingsPanel").hidden = !open;
+    $("settingsToggle").setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  async function loadSettings() {
+    const data = await api("/api/settings");
+    applyUiSettings(data);
+  }
+
+  async function saveSettings(payload) {
+    $("settingsStatus").textContent = "Saving…";
+    const data = await api("/api/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    applyUiSettings(data);
+    $("settingsStatus").textContent = "Saved.";
+  }
+
   document.querySelectorAll(".tab").forEach((tab) => {
     tab.addEventListener("click", () => {
-      if (tab.disabled) return;
+      if (tab.disabled || tab.hidden) return;
       showTab(tab.dataset.tab);
     });
+  });
+
+  $("settingsToggle").addEventListener("click", () => {
+    const open = $("settingsPanel").hidden;
+    if (open) fillSettingsFormFromState();
+    setSettingsOpen(open);
+  });
+  $("settingsClose").addEventListener("click", () => setSettingsOpen(false));
+  $("settingsSave").addEventListener("click", () => {
+    saveSettings(settingsFromForm()).catch((e) => {
+      $("settingsStatus").textContent = e.message;
+    });
+  });
+  $("presetDaily").addEventListener("click", () => {
+    $("setShowGenerate").checked = false;
+    $("setShowAdapt").checked = false;
+    $("setShowCreate").checked = true;
+    $("setShowHelp").checked = false;
+  });
+  $("presetFull").addEventListener("click", () => {
+    $("setShowGenerate").checked = true;
+    $("setShowAdapt").checked = true;
+    $("setShowCreate").checked = true;
+    $("setShowHelp").checked = true;
   });
 
   function clearEditor() {
@@ -78,6 +203,8 @@
     $("bpJson").value = "";
     $("bpJsonPaste").value = "";
     $("bpZip").value = "";
+    if ($("bpPageUrl")) $("bpPageUrl").value = "";
+    if ($("createBpStatus")) $("createBpStatus").textContent = "";
     $("derivedBox").classList.add("muted");
     $("derivedBox").textContent = "Upload a package to derive paths.";
     $("contentParentPath").value = "";
@@ -174,6 +301,24 @@
     $("advFields").hidden = !e.target.checked;
   });
 
+  function currentCreateMode() {
+    const checked = document.querySelector('input[name="createMode"]:checked');
+    return checked ? checked.value : "upload";
+  }
+
+  function applyCreateModeUi() {
+    const mode = currentCreateMode();
+    const aem = mode === "aem";
+    $("createModeUpload").hidden = aem;
+    $("createModeAem").hidden = !aem;
+    $("createBp").textContent = aem ? "Fetch & derive" : "Upload & derive";
+  }
+
+  document.querySelectorAll('input[name="createMode"]').forEach((radio) => {
+    radio.addEventListener("change", applyCreateModeUi);
+  });
+  applyCreateModeUi();
+
   $("bpJson").addEventListener("change", () => {
     if ($("bpJson").files[0]) {
       $("bpJsonPaste").value = "";
@@ -186,7 +331,43 @@
     }
   });
 
+  async function afterBlueprintCreated(created) {
+    fillDerived(created.derived);
+    await refreshList();
+    await selectBlueprint(created.id, { package: created.derived });
+    alert(created.hint || "Blueprint created.");
+  }
+
   $("createBp").addEventListener("click", async () => {
+    $("createBpStatus").textContent = "";
+    if (currentCreateMode() === "aem") {
+      const pageUrl = $("bpPageUrl").value.trim();
+      if (!pageUrl) {
+        alert("Enter an AEM page URL or content path.");
+        return;
+      }
+      $("createBpStatus").textContent = "Fetching from AEM…";
+      $("createBp").disabled = true;
+      try {
+        const created = await api("/api/blueprints/from-aem", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: $("bpName").value.trim(),
+            pageUrl,
+          }),
+        });
+        $("createBpStatus").textContent = "Fetched and derived.";
+        await afterBlueprintCreated(created);
+      } catch (e) {
+        $("createBpStatus").textContent = e.message;
+        alert(e.message);
+      } finally {
+        $("createBp").disabled = false;
+      }
+      return;
+    }
+
     const jsonFile = $("bpJson").files[0];
     const jsonPaste = $("bpJsonPaste").value.trim();
     const zip = $("bpZip").files[0];
@@ -210,14 +391,17 @@
       fd.append("jsonText", jsonPaste);
     }
     fd.append("zip", zip);
+    $("createBpStatus").textContent = "Uploading…";
+    $("createBp").disabled = true;
     try {
       const created = await api("/api/blueprints", { method: "POST", body: fd });
-      fillDerived(created.derived);
-      await refreshList();
-      await selectBlueprint(created.id, { package: created.derived });
-      alert(created.hint || "Blueprint created.");
+      $("createBpStatus").textContent = "Uploaded and derived.";
+      await afterBlueprintCreated(created);
     } catch (e) {
+      $("createBpStatus").textContent = e.message;
       alert(e.message);
+    } finally {
+      $("createBp").disabled = false;
     }
   });
 
@@ -392,10 +576,13 @@
     const hint = $("readinessHint");
     const tabGenerate = $("tabGenerate");
     const tabBuild = $("tabBuild");
+    const helpOn = state.settings.showHelpText;
+
     if (!state.selectedId) {
       tabGenerate.disabled = true;
       tabBuild.disabled = true;
       hint.hidden = true;
+      hint.textContent = "";
       renderArticleLists([]);
       return;
     }
@@ -406,19 +593,24 @@
     const buildSetupReady = !!(r.buildPackage.setupReady || r.buildPackage.ready);
     tabBuild.disabled = !buildSetupReady;
 
-    const missing = [];
-    if (!r.generateTemplate.ready) {
-      missing.push("Generate needs: " + (r.generateTemplate.missing.join(", ") || "—"));
-    }
-    if (!r.buildPackage.ready) {
-      missing.push("Build needs: " + (r.buildPackage.missing.join(", ") || "—"));
-    }
-    if (missing.length) {
-      hint.hidden = false;
-      hint.textContent = `Selected: ${state.selectedId}. ` + missing.join(" · ");
+    if (!helpOn) {
+      hint.hidden = true;
+      hint.textContent = "";
     } else {
-      hint.hidden = false;
-      hint.textContent = `Selected: ${state.selectedId}. Generate and Build are ready.`;
+      const missing = [];
+      if (state.settings.showGenerateTab && !r.generateTemplate.ready) {
+        missing.push("Generate needs: " + (r.generateTemplate.missing.join(", ") || "—"));
+      }
+      if (!r.buildPackage.ready) {
+        missing.push("Build needs: " + (r.buildPackage.missing.join(", ") || "—"));
+      }
+      if (missing.length) {
+        hint.hidden = false;
+        hint.textContent = `Selected: ${state.selectedId}. ` + missing.join(" · ");
+      } else {
+        hint.hidden = false;
+        hint.textContent = `Selected: ${state.selectedId}. Ready.`;
+      }
     }
 
     $("buildMissing").textContent = r.buildPackage.ready
@@ -696,6 +888,7 @@
     }
   });
 
+  loadSettings().catch((e) => console.warn("Settings load failed:", e.message));
   loadAdaptMappings().catch(() => {});
   refreshList().catch((e) => alert(e.message));
 })();
