@@ -1,6 +1,7 @@
 package com.aem.bulkauthoring.studio;
 
 import com.aem.bulkauthoring.docadapt.DocAdaptService;
+import com.aem.bulkauthoring.docadapt.mapping.SlotBinding;
 import com.aem.bulkauthoring.docadapt.review.AdaptReviewModel;
 import com.aem.bulkauthoring.studio.aem.AemAuthorClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -311,10 +312,27 @@ public final class StudioApi {
             }
         });
 
+        app.get("/api/adapt/templates", ctx -> {
+            try {
+                ctx.json(Map.of("templates", adaptService.listTemplates()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
+            }
+        });
+
+        app.get("/api/adapt/recipes", ctx -> {
+            ctx.json(Map.of("recipes", adaptService.listRecipes()));
+        });
+
         app.post("/api/adapt/run", ctx -> {
             String mappingId = ctx.formParam("mappingId");
-            if (mappingId == null || mappingId.isBlank()) {
-                ctx.status(400).json(error("mappingId is required"));
+            String template = ctx.formParam("template");
+            String recipe = ctx.formParam("recipe");
+            boolean auto = mappingId == null
+                    || mappingId.isBlank()
+                    || DocAdaptService.AUTO_MAPPING_ID.equals(mappingId);
+            if (auto && (template == null || template.isBlank())) {
+                ctx.status(400).json(error("Select a template (or a saved mapping)"));
                 return;
             }
             File tempDir = Files.createTempDirectory("studio-adapt-").toFile();
@@ -327,9 +345,10 @@ public final class StudioApi {
                     }
                     uploaded.add(dest);
                 }
-                DocAdaptService.AdaptJobResult result = uploaded.isEmpty()
-                        ? adaptService.run(mappingId, null)
-                        : adaptService.run(mappingId, uploaded);
+                List<File> sources = uploaded.isEmpty() ? null : uploaded;
+                DocAdaptService.AdaptJobResult result = auto
+                        ? adaptService.runAuto(DocAdaptService.resolveTemplate(template), recipe, sources)
+                        : adaptService.run(mappingId, sources);
                 ctx.json(toAdaptJson(result));
             } catch (IllegalArgumentException e) {
                 ctx.status(400).json(error(e.getMessage()));
@@ -343,6 +362,45 @@ public final class StudioApi {
                     }
                 }
                 tempDir.delete();
+            }
+        });
+
+        app.post("/api/adapt/rebind", ctx -> {
+            try {
+                JsonNode body = mapper.readTree(ctx.body());
+                String jobId = text(body, "jobId");
+                if (jobId == null) {
+                    ctx.status(400).json(error("jobId is required"));
+                    return;
+                }
+                ctx.json(toAdaptJson(adaptService.rebind(jobId, readBindings(body.get("bindings")))));
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(error(e.getMessage()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
+            }
+        });
+
+        app.post("/api/adapt/mappings", ctx -> {
+            try {
+                JsonNode body = mapper.readTree(ctx.body());
+                String id = text(body, "id");
+                String template = text(body, "targetTemplate");
+                if (id == null || template == null) {
+                    ctx.status(400).json(error("id and targetTemplate are required"));
+                    return;
+                }
+                File saved = adaptService.saveMapping(
+                        id,
+                        template,
+                        text(body, "sourceRecipe"),
+                        text(body, "bindStrategy"),
+                        readBindings(body.get("bindings")));
+                ctx.json(Map.of("id", id, "path", saved.getPath().replace('\\', '/')));
+            } catch (IllegalArgumentException e) {
+                ctx.status(400).json(error(e.getMessage()));
+            } catch (Exception e) {
+                ctx.status(500).json(error(e.getMessage()));
             }
         });
 
@@ -400,21 +458,68 @@ public final class StudioApi {
         ObjectNode root = mapper.createObjectNode();
         root.put("jobId", result.jobId);
         root.put("mappingId", result.mappingId);
+        if (result.templatePath != null) {
+            root.put("templatePath", result.templatePath);
+        }
+        if (result.recipeId != null) {
+            root.put("recipeId", result.recipeId);
+        }
         ArrayNode reviews = root.putArray("reviews");
         for (AdaptReviewModel review : result.reviews) {
             ObjectNode r = reviews.addObject();
             r.put("sourceFile", review.getSourceFile());
             r.put("adaptedFile", review.getAdaptedFile());
             r.put("sourcePlainText", review.getSourcePlainText());
+            if (review.getRecipeId() != null) {
+                r.put("recipeId", review.getRecipeId());
+            }
+            if (review.getBindStrategy() != null) {
+                r.put("bindStrategy", review.getBindStrategy());
+            }
             ArrayNode slots = r.putArray("slots");
             for (AdaptReviewModel.SlotReview slot : review.getSlots()) {
                 ObjectNode s = slots.addObject();
                 s.put("path", slot.getPath());
                 s.put("value", slot.getValue());
                 s.put("sourceExcerpt", slot.getSourceExcerpt());
+                if (slot.getUnitId() != null) {
+                    s.put("unitId", slot.getUnitId());
+                }
+            }
+            ArrayNode units = r.putArray("units");
+            if (review.getUnits() != null) {
+                for (var unit : review.getUnits()) {
+                    ObjectNode u = units.addObject();
+                    u.put("id", unit.getId());
+                    u.put("label", unit.getLabel());
+                    u.put("value", unit.getValue());
+                }
+            }
+            ArrayNode bindings = r.putArray("bindings");
+            if (review.getBindings() != null) {
+                for (var b : review.getBindings()) {
+                    ObjectNode n = bindings.addObject();
+                    n.put("unit", b.getUnit());
+                    n.put("path", b.getPath());
+                }
             }
         }
         return root;
+    }
+
+    private static List<SlotBinding> readBindings(JsonNode node) {
+        List<SlotBinding> out = new ArrayList<>();
+        if (node == null || !node.isArray()) {
+            return out;
+        }
+        for (JsonNode n : node) {
+            String unit = text(n, "unit");
+            String path = text(n, "path");
+            if (path != null) {
+                out.add(new SlotBinding(unit, path));
+            }
+        }
+        return out;
     }
 
     private static String text(JsonNode body, String field) {

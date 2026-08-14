@@ -1,5 +1,6 @@
 package com.aem.bulkauthoring.docadapt.extract;
 
+import com.aem.bulkauthoring.docadapt.content.DocTexts;
 import com.aem.bulkauthoring.docadapt.model.DocBlock;
 import com.aem.bulkauthoring.docadapt.model.NormalizedDocument;
 import com.aem.bulkauthoring.docadapt.model.ParagraphBlock;
@@ -33,13 +34,22 @@ public final class SourceDocumentNormalizer {
                         continue;
                     }
                     String style = p.getStyle() == null ? "" : p.getStyle();
-                    blocks.add(new ParagraphBlock(text.trim(), style));
+                    int headingLevel = DocTexts.headingLevelFromStyle(style);
+                    boolean listItem = p.getNumID() != null;
+                    boolean ordered = listItem && isOrdered(p);
+                    blocks.add(new ParagraphBlock(
+                            text.trim(), style, headingLevel, listItem, ordered));
                 } else if (element instanceof XWPFTable) {
                     blocks.add(readTable((XWPFTable) element));
                 }
             }
             return new NormalizedDocument(docx.getName(), blocks);
         }
+    }
+
+    private static boolean isOrdered(XWPFParagraph paragraph) {
+        String text = paragraph.getText();
+        return text != null && text.trim().matches("^\\d+[.)]\\s+.*");
     }
 
     private static TableBlock readTable(XWPFTable table) {

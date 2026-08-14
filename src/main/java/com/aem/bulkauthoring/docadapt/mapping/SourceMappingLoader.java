@@ -1,6 +1,7 @@
 package com.aem.bulkauthoring.docadapt.mapping;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 
 import java.io.File;
 import java.io.IOException;
@@ -9,13 +10,16 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public final class SourceMappingLoader {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+            .enable(SerializationFeature.INDENT_OUTPUT);
     public static final String MAPPINGS_DIR = "input/source-mappings";
+    private static final Pattern SAFE_ID = Pattern.compile("[A-Za-z0-9][A-Za-z0-9_-]*");
 
     private SourceMappingLoader() {
     }
@@ -58,5 +62,19 @@ public final class SourceMappingLoader {
                     .sorted()
                     .collect(Collectors.toCollection(ArrayList::new));
         }
+    }
+
+    public static File save(SourceMapping mapping) throws IOException {
+        if (mapping == null || mapping.getId() == null || !SAFE_ID.matcher(mapping.getId()).matches()) {
+            throw new IllegalArgumentException("Mapping id must be letters, digits, _ or -");
+        }
+        if (mapping.getTargetTemplate() == null || mapping.getTargetTemplate().isBlank()) {
+            throw new IllegalArgumentException("Mapping missing targetTemplate");
+        }
+        Path dir = Path.of(MAPPINGS_DIR);
+        Files.createDirectories(dir);
+        File file = dir.resolve(mapping.getId() + ".json").toFile();
+        MAPPER.writeValue(file, mapping);
+        return file;
     }
 }

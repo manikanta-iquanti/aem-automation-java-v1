@@ -171,11 +171,18 @@
       <section id="panel-adapt" class="panel">
         <h2>Adapt sources</h2>
         <p class="help help-block">
-          Map raw client DOCX files onto a filled template using a source-mapping JSON.
-          Existing Generate / Upload articles / Build package work without this step.
+          Map raw client DOCX files onto a filled template. Auto-detect USB table forms or
+          Word H1/H2/paragraph articles, bind them to the template’s
+          <code>[[jcr path]]</code> markers, then confirm once and reuse.
         </p>
         <label>Mapping
           <select id="adaptMapping"></select>
+        </label>
+        <label>Target template
+          <select id="adaptTemplate"></select>
+        </label>
+        <label>Source shape
+          <select id="adaptRecipe"></select>
         </label>
         <label>Raw source DOCX (optional — leave empty to use <code>input/raw-source-docs</code>)
           <input id="adaptSources" type="file" accept=".docx" multiple />
@@ -202,7 +209,16 @@
             </div>
           </div>
           <h3>Per-slot mapping</h3>
+          <p id="adaptRecipeHint" class="muted"></p>
           <div id="adaptSlotStrip" class="adapt-slot-strip"></div>
+          <div class="adapt-teach">
+            <button type="button" id="adaptApplyRest" class="btn">Apply this mapping to remaining</button>
+            <label>Save mapping as
+              <input id="adaptSaveId" type="text" placeholder="usb-to-my-template" />
+            </label>
+            <button type="button" id="adaptSaveMapping" class="btn">Save mapping</button>
+          </div>
+          <p id="adaptBindStatus" class="status"></p>
           <button type="button" id="adaptSendArticles" class="btn primary">Send approved to articles</button>
           <p id="adaptSendStatus" class="status"></p>
         </div>

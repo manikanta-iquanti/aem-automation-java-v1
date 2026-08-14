@@ -17,6 +17,8 @@
       reviews: [],
       index: 0,
       approved: {},
+      mappingId: "",
+      templatePath: "",
     },
   };
 
@@ -256,6 +258,7 @@
 
   async function selectBlueprint(id, summary) {
     state.selectedId = id;
+    loadAdaptTemplates().catch(() => {});
     document.querySelectorAll("#blueprintList li").forEach((li) => {
       li.classList.toggle("selected", li.dataset.id === id);
     });
@@ -741,22 +744,74 @@
       const data = await api("/api/adapt/mappings");
       const ids = data.mappings || [];
       select.innerHTML = "";
-      if (!ids.length) {
-        select.innerHTML = '<option value="">No mappings in input/source-mappings</option>';
-        return;
-      }
+      const auto = document.createElement("option");
+      auto.value = "__auto__";
+      auto.textContent = "Auto (detect source + bind to template)";
+      select.appendChild(auto);
       ids.forEach((id) => {
         const opt = document.createElement("option");
         opt.value = id;
         opt.textContent = id;
         select.appendChild(opt);
       });
-      if (ids.includes("usb-content-hub-normal-page")) {
-        select.value = "usb-content-hub-normal-page";
+      select.value = "__auto__";
+      toggleAdaptAutoFields();
+    } catch (e) {
+      select.innerHTML = `<option value="">${esc(e.message)}</option>`;
+    }
+  }
+
+  async function loadAdaptTemplates() {
+    const select = $("adaptTemplate");
+    if (!select) return;
+    try {
+      const data = await api("/api/adapt/templates");
+      const templates = data.templates || [];
+      select.innerHTML = "";
+      if (!templates.length) {
+        select.innerHTML = '<option value="">No templates in input/templates</option>';
+        return;
+      }
+      templates.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.path || t.id;
+        opt.textContent = t.id + (t.markers && t.markers.length ? ` (${t.markers.length} markers)` : "");
+        select.appendChild(opt);
+      });
+      if (state.selectedId) {
+        const match = templates.find((t) => t.id === state.selectedId);
+        if (match) select.value = match.path || match.id;
       }
     } catch (e) {
       select.innerHTML = `<option value="">${esc(e.message)}</option>`;
     }
+  }
+
+  async function loadAdaptRecipes() {
+    const select = $("adaptRecipe");
+    if (!select) return;
+    try {
+      const data = await api("/api/adapt/recipes");
+      const ids = data.recipes || ["auto"];
+      select.innerHTML = "";
+      ids.forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id === "auto" ? "Auto-detect" : id;
+        select.appendChild(opt);
+      });
+      select.value = "auto";
+    } catch (e) {
+      select.innerHTML = '<option value="auto">Auto-detect</option>';
+    }
+  }
+
+  function toggleAdaptAutoFields() {
+    const auto = $("adaptMapping") && $("adaptMapping").value === "__auto__";
+    const template = $("adaptTemplate");
+    const recipe = $("adaptRecipe");
+    if (template) template.disabled = !auto;
+    if (recipe) recipe.disabled = !auto;
   }
 
   function currentAdaptReview() {
@@ -785,14 +840,49 @@
       mapped.appendChild(el);
     });
 
+    const hint = $("adaptRecipeHint");
+    if (hint) {
+      const bits = [];
+      if (review.recipeId) bits.push("Recipe: " + review.recipeId);
+      if (review.bindStrategy) bits.push("Bind: " + review.bindStrategy);
+      hint.textContent = bits.join(" · ");
+    }
+
     const strip = $("adaptSlotStrip");
     strip.innerHTML = "";
+    const units = review.units || [];
     (review.slots || []).forEach((slot) => {
       const row = document.createElement("div");
       row.className = "adapt-slot-row";
-      row.innerHTML = `<code>${esc(slot.path)}</code>
-        <div class="muted-cell">${esc(slot.sourceExcerpt || "")}</div>
-        <div class="muted-cell">${esc(previewSample(slot.value) || "(empty)")}</div>`;
+      const path = document.createElement("code");
+      path.textContent = slot.path;
+      row.appendChild(path);
+      if (units.length) {
+        const select = document.createElement("select");
+        select.className = "adapt-unit-select";
+        select.dataset.path = slot.path;
+        const empty = document.createElement("option");
+        empty.value = "__empty__";
+        empty.textContent = "(leave empty)";
+        select.appendChild(empty);
+        units.forEach((unit) => {
+          const opt = document.createElement("option");
+          opt.value = unit.id;
+          opt.textContent = unit.label;
+          select.appendChild(opt);
+        });
+        select.value = slot.unitId || "__empty__";
+        row.appendChild(select);
+      } else {
+        const excerpt = document.createElement("div");
+        excerpt.className = "muted-cell";
+        excerpt.textContent = slot.sourceExcerpt || "";
+        row.appendChild(excerpt);
+      }
+      const preview = document.createElement("div");
+      preview.className = "muted-cell";
+      preview.textContent = previewSample(slot.value) || "(empty)";
+      row.appendChild(preview);
       strip.appendChild(row);
     });
 
@@ -806,30 +896,108 @@
     $("adaptNext").disabled = state.adapt.index >= state.adapt.reviews.length - 1;
   }
 
+  function collectAdaptBindings() {
+    const selects = document.querySelectorAll("#adaptSlotStrip .adapt-unit-select");
+    const bindings = [];
+    selects.forEach((sel) => {
+      bindings.push({ unit: sel.value, path: sel.dataset.path });
+    });
+    return bindings;
+  }
+
+  $("adaptMapping").addEventListener("change", toggleAdaptAutoFields);
+
   $("runAdapt").addEventListener("click", async () => {
     const mappingId = $("adaptMapping").value;
     if (!mappingId) {
-      alert("Select a mapping (or add JSON under input/source-mappings).");
+      alert("Select Auto or a saved mapping.");
+      return;
+    }
+    if (mappingId === "__auto__" && !$("adaptTemplate").value) {
+      alert("Select a target template.");
       return;
     }
     const fd = new FormData();
     fd.append("mappingId", mappingId);
+    fd.append("template", $("adaptTemplate").value || "");
+    fd.append("recipe", $("adaptRecipe").value || "auto");
     const files = $("adaptSources").files;
     for (const f of files) fd.append("sources", f);
     $("adaptStatus").textContent = "Adapting…";
     try {
       const result = await api("/api/adapt/run", { method: "POST", body: fd });
       state.adapt.jobId = result.jobId;
+      state.adapt.mappingId = result.mappingId;
+      state.adapt.templatePath = result.templatePath || $("adaptTemplate").value;
       state.adapt.reviews = result.reviews || [];
       state.adapt.index = 0;
       state.adapt.approved = {};
       $("adaptStatus").textContent =
-        `Adapted ${state.adapt.reviews.length} file(s). Review side-by-side below.`;
+        `Adapted ${state.adapt.reviews.length} file(s). Review and adjust slot bindings below.`;
       $("adaptSources").value = "";
       renderAdaptReview();
     } catch (e) {
       $("adaptStatus").textContent = e.message;
       $("adaptReview").hidden = true;
+    }
+  });
+
+  $("adaptApplyRest").addEventListener("click", async () => {
+    if (!state.adapt.jobId) {
+      alert("Run adapt first.");
+      return;
+    }
+    const bindings = collectAdaptBindings();
+    if (!bindings.length) {
+      alert("This job has no editable bindings (saved path mappings cannot be rebound here).");
+      return;
+    }
+    $("adaptBindStatus").textContent = "Rebinding…";
+    try {
+      const result = await api("/api/adapt/rebind", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: state.adapt.jobId, bindings }),
+      });
+      state.adapt.reviews = result.reviews || [];
+      $("adaptBindStatus").textContent = "Applied bindings to all articles in this job.";
+      renderAdaptReview();
+    } catch (e) {
+      $("adaptBindStatus").textContent = e.message;
+    }
+  });
+
+  $("adaptSaveMapping").addEventListener("click", async () => {
+    const id = ($("adaptSaveId").value || "").trim();
+    if (!id) {
+      alert("Enter a mapping id to save.");
+      return;
+    }
+    const review = currentAdaptReview();
+    const template = state.adapt.templatePath || $("adaptTemplate").value;
+    if (!template) {
+      alert("Select the target template this mapping should use.");
+      return;
+    }
+    $("adaptBindStatus").textContent = "Saving…";
+    try {
+      const result = await api("/api/adapt/mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          targetTemplate: template,
+          sourceRecipe: review && review.recipeId ? review.recipeId : ($("adaptRecipe").value || "auto"),
+          bindStrategy: review && review.bindStrategy ? review.bindStrategy : null,
+          bindings: collectAdaptBindings().filter((b) => b.unit && b.unit !== "__empty__"),
+        }),
+      });
+      $("adaptBindStatus").textContent = "Saved " + result.path;
+      await loadAdaptMappings();
+      $("adaptMapping").value = result.id;
+      toggleAdaptAutoFields();
+    } catch (e) {
+      $("adaptBindStatus").textContent = e.message;
     }
   });
 
@@ -890,5 +1058,7 @@
 
   loadSettings().catch((e) => console.warn("Settings load failed:", e.message));
   loadAdaptMappings().catch(() => {});
+  loadAdaptTemplates().catch(() => {});
+  loadAdaptRecipes().catch(() => {});
   refreshList().catch((e) => alert(e.message));
 })();
