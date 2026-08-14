@@ -1,7 +1,7 @@
 {
   "defaultPackageName" : "bulk-content",
   "showGenerateTab" : true,
-  "showAdaptTab" : true,
+  "showAdaptTab" : false,
   "showCreateBlueprint" : true,
   "showHelpText" : true,
   "createApproach" : "aem",

@@ -21,8 +21,6 @@ public final class StudioSettings {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private String defaultPackageName = DEFAULT_PACKAGE_NAME;
-    /** Daily authoring default: Upload articles tab hidden until needed. */
-    private boolean showGenerateTab = false;
     /** Daily authoring default: Adapt hidden until source conversion is needed. */
     private boolean showAdaptTab = false;
     /** Opt-in download of the generated Word template. */
@@ -48,14 +46,6 @@ public final class StudioSettings {
         } else {
             this.defaultPackageName = defaultPackageName.trim();
         }
-    }
-
-    public boolean isShowGenerateTab() {
-        return showGenerateTab;
-    }
-
-    public void setShowGenerateTab(boolean showGenerateTab) {
-        this.showGenerateTab = showGenerateTab;
     }
 
     public boolean isShowAdaptTab() {
@@ -146,7 +136,6 @@ public final class StudioSettings {
     public Map<String, Object> toMap() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("defaultPackageName", defaultPackageName);
-        map.put("showGenerateTab", showGenerateTab);
         map.put("showAdaptTab", showAdaptTab);
         map.put("showDownloadTemplate", showDownloadTemplate);
         map.put("showCreateBlueprint", showCreateBlueprint);
@@ -164,9 +153,6 @@ public final class StudioSettings {
         }
         if (body.has("defaultPackageName")) {
             setDefaultPackageName(body.get("defaultPackageName").asText());
-        }
-        if (body.has("showGenerateTab")) {
-            setShowGenerateTab(body.get("showGenerateTab").asBoolean());
         }
         if (body.has("showAdaptTab")) {
             setShowAdaptTab(body.get("showAdaptTab").asBoolean());
@@ -211,7 +197,6 @@ public final class StudioSettings {
     public void save() throws IOException {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("defaultPackageName", defaultPackageName);
-        root.put("showGenerateTab", showGenerateTab);
         root.put("showAdaptTab", showAdaptTab);
         root.put("showDownloadTemplate", showDownloadTemplate);
         root.put("showCreateBlueprint", showCreateBlueprint);

@@ -4,7 +4,6 @@
     readiness: null,
     settings: {
       defaultPackageName: "bulk-content",
-      showGenerateTab: false,
       showAdaptTab: false,
       showDownloadTemplate: false,
       showCreateBlueprint: true,
@@ -87,7 +86,6 @@
   function applyUiSettings(settings) {
     state.settings = {
       defaultPackageName: settings.defaultPackageName || "bulk-content",
-      showGenerateTab: !!settings.showGenerateTab,
       showAdaptTab: !!settings.showAdaptTab,
       showDownloadTemplate: !!settings.showDownloadTemplate,
       showCreateBlueprint: settings.showCreateBlueprint !== false,
@@ -101,9 +99,7 @@
     const s = state.settings;
     document.body.classList.toggle("show-help", s.showHelpText);
 
-    const tabGenerate = $("tabGenerate");
     const tabAdapt = $("tabAdapt");
-    tabGenerate.hidden = !s.showGenerateTab;
     tabAdapt.hidden = !s.showAdaptTab;
 
     const createSection = $("createBlueprintSection");
@@ -114,8 +110,7 @@
     applyDownloadVisibility();
 
     const current = activeTabName();
-    if ((current === "generate" && !s.showGenerateTab)
-        || (current === "adapt" && !s.showAdaptTab)) {
+    if (current === "adapt" && !s.showAdaptTab) {
       showTab("blueprints");
     }
 
@@ -124,7 +119,6 @@
 
   function fillSettingsFormFromState() {
     const s = state.settings;
-    $("setShowGenerate").checked = s.showGenerateTab;
     $("setShowAdapt").checked = s.showAdaptTab;
     $("setShowDownloadTemplate").checked = s.showDownloadTemplate;
     $("setShowCreate").checked = s.showCreateBlueprint;
@@ -140,7 +134,6 @@
   function settingsFromForm() {
     return {
       defaultPackageName: $("setDefaultPackage").value.trim() || "bulk-content",
-      showGenerateTab: $("setShowGenerate").checked,
       showAdaptTab: $("setShowAdapt").checked,
       showDownloadTemplate: $("setShowDownloadTemplate").checked,
       showCreateBlueprint: $("setShowCreate").checked,
@@ -203,14 +196,12 @@
     });
   });
   $("presetDaily").addEventListener("click", () => {
-    $("setShowGenerate").checked = false;
     $("setShowAdapt").checked = false;
     $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
     $("setShowHelp").checked = false;
   });
   $("presetFull").addEventListener("click", () => {
-    $("setShowGenerate").checked = true;
     $("setShowAdapt").checked = true;
     $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
@@ -243,7 +234,6 @@
     $("bpFooterStatus").textContent = "";
     $("buildStatus").textContent = "";
     $("previewBlocks").innerHTML = "";
-    $("articlesGenerateStatus").textContent = "";
     $("articlesBuildStatus").textContent = "";
     setPreviewAvailable(false);
     refreshReadiness();
@@ -690,12 +680,10 @@
 
   async function refreshReadiness() {
     const hint = $("readinessHint");
-    const tabGenerate = $("tabGenerate");
     const tabBuild = $("tabBuild");
     const helpOn = state.settings.showHelpText;
 
     if (!state.selectedId) {
-      tabGenerate.disabled = true;
       tabBuild.disabled = true;
       hint.hidden = true;
       hint.textContent = "";
@@ -704,7 +692,6 @@
     }
     const r = await api(`/api/blueprints/${state.selectedId}/readiness`);
     state.readiness = r;
-    tabGenerate.disabled = false;
     // Open Build once package setup is ready — articles can be uploaded on that tab
     const buildSetupReady = !!(r.buildPackage.setupReady || r.buildPackage.ready);
     tabBuild.disabled = !buildSetupReady;
@@ -750,7 +737,6 @@
         ul.appendChild(li);
       });
     };
-    render("articlesGenerateList");
     render("articlesBuildList");
   }
 
@@ -797,9 +783,6 @@
     }
   }
 
-  $("uploadArticlesGenerate").addEventListener("click", () => {
-    uploadArticlesFrom("articlesGenerate", "articlesGenerateStatus");
-  });
   $("uploadArticlesBuild").addEventListener("click", () => {
     uploadArticlesFrom("articles", "articlesBuildStatus");
   });
@@ -1138,8 +1121,9 @@
         }),
       });
       $("adaptSendStatus").textContent =
-        `Sent ${result.articles.length} file(s) to articles. Build package when ready.`;
+        `Sent ${result.articles.length} file(s) to articles. Opening Build package…`;
       await refreshReadiness();
+      showTab("build");
     } catch (e) {
       $("adaptSendStatus").textContent = e.message;
     }
