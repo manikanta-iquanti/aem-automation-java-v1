@@ -126,26 +126,60 @@ public class BlueprintUpdater {
         return value;
     }
 
-    private String toHtml(String value) {
+    /** Visible for tests. Converts Word/plain text into RTE HTML, including bullet lists. */
+    String toHtml(String value) {
         if (looksLikeHtml(value)) {
             return value;
         }
 
-        String[] paragraphs = value.split("\\R{2,}");
+        String[] lines = value.split("\\R", -1);
         StringBuilder html = new StringBuilder();
-        for (String paragraph : paragraphs) {
-            String trimmed = paragraph.trim();
+        List<String> paragraph = new ArrayList<>();
+        List<String> list = new ArrayList<>();
+
+        for (String raw : lines) {
+            String trimmed = raw.trim();
             if (trimmed.isEmpty()) {
+                flushList(html, list);
+                flushParagraph(html, paragraph);
                 continue;
             }
-            String withBreaks = escapeXml(trimmed).replace("\n", "<br/>");
-            html.append("<p>").append(withBreaks).append("</p>\n");
+            if (trimmed.matches("^[-*]\\s+.+")) {
+                flushParagraph(html, paragraph);
+                list.add(trimmed.replaceFirst("^[-*]\\s+", ""));
+            } else {
+                flushList(html, list);
+                paragraph.add(trimmed);
+            }
         }
+        flushList(html, list);
+        flushParagraph(html, paragraph);
 
         if (html.length() == 0) {
             return "<p></p>";
         }
         return html.toString().trim();
+    }
+
+    private void flushParagraph(StringBuilder html, List<String> paragraph) {
+        if (paragraph.isEmpty()) {
+            return;
+        }
+        String joined = String.join("\n", paragraph);
+        html.append("<p>").append(escapeXml(joined).replace("\n", "<br/>")).append("</p>\n");
+        paragraph.clear();
+    }
+
+    private void flushList(StringBuilder html, List<String> list) {
+        if (list.isEmpty()) {
+            return;
+        }
+        html.append("<ul>\n");
+        for (String item : list) {
+            html.append("<li>").append(escapeXml(item)).append("</li>\n");
+        }
+        html.append("</ul>\n");
+        list.clear();
     }
 
     private boolean looksLikeHtml(String value) {

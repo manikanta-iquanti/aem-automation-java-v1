@@ -19,9 +19,9 @@
             </svg>
           </span>
           <div>
-            <p class="brand-kicker">Precision authoring</p>
-            <h1>Blueprint Studio</h1>
-            <p class="tagline help-block">Local AEM bulk authoring — no Java coding required</p>
+            <p class="brand-kicker">AEM</p>
+            <h1>Author's Studio</h1>
+            <p class="tagline help-block">Local AEM bulk content authoring</p>
           </div>
         </div>
         <button type="button" id="settingsToggle" class="btn-icon" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings">
@@ -67,6 +67,11 @@
           <span>Show help text</span>
           <input type="checkbox" id="setShowHelp" />
         </label>
+        <p class="settings-presets-label">Create approach</p>
+        <div class="mode-toggle" role="radiogroup" aria-label="Create approach">
+          <label class="mode-option"><input type="radio" name="createApproach" id="setCreateAem" value="aem" /> Fetch from AEM</label>
+          <label class="mode-option"><input type="radio" name="createApproach" id="setCreateUpload" value="upload" /> Upload files</label>
+        </div>
         <label class="settings-row settings-row-stack">
           <span>Default package name</span>
           <input type="text" id="setDefaultPackage" placeholder="bulk-content" />
@@ -93,69 +98,90 @@
 
     <main>
       <section id="panel-blueprints" class="panel active">
-        <div class="split">
-          <div class="card-block">
-            <p class="panel-kicker">Library</p>
-            <h2>Saved blueprints</h2>
-            <p class="help help-block">Click to load. Click the same one again to clear and start a new blueprint.</p>
-            <ul id="blueprintList" class="list"></ul>
-            <button type="button" id="newBlueprint" class="btn ghost">New blueprint</button>
-            <button type="button" id="refreshList" class="btn ghost">Refresh</button>
-          </div>
-          <div class="card-block">
-            <p class="panel-kicker">Workflow</p>
-            <h2>Create / edit</h2>
-            <ol class="steps">
-              <li id="createBlueprintSection">
-                <h3>1. Create blueprint</h3>
-                <p class="help help-block">Upload JSON + FileVault zip, or fetch both from local AEM Author (credentials in Settings).</p>
-                <div class="mode-toggle" role="radiogroup" aria-label="Create mode">
-                  <label class="mode-option"><input type="radio" name="createMode" value="upload" checked /> Upload files</label>
-                  <label class="mode-option"><input type="radio" name="createMode" value="aem" /> Fetch from AEM</label>
+        <div class="bp-workspace">
+          <nav class="bp-rail" aria-label="Blueprint tools">
+            <button type="button" id="railHistory" class="rail-btn" aria-pressed="false" aria-controls="flyoutHistory" title="History">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 7v5l3 2" />
+              </svg>
+              <span class="rail-label">History</span>
+            </button>
+            <button type="button" id="railPaths" class="rail-btn" aria-pressed="false" aria-controls="flyoutPaths" title="Derived paths">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M4 7h7l2 3h7" />
+                <path d="M4 17h6l2-3h8" />
+                <circle cx="6" cy="7" r="1.4" fill="currentColor" stroke="none" />
+                <circle cx="7" cy="17" r="1.4" fill="currentColor" stroke="none" />
+              </svg>
+              <span class="rail-label">Paths</span>
+            </button>
+          </nav>
+
+          <aside id="flyoutHistory" class="bp-flyout" hidden>
+            <div class="card-block flyout-sheet">
+              <p class="panel-kicker">History</p>
+              <h2>Saved blueprints</h2>
+              <p class="help help-block">Click to load. Click the same one again to clear and start a new blueprint.</p>
+              <ul id="blueprintList" class="list"></ul>
+              <button type="button" id="newBlueprint" class="btn ghost">New blueprint</button>
+              <button type="button" id="refreshList" class="btn ghost">Refresh</button>
+            </div>
+          </aside>
+
+          <aside id="flyoutPaths" class="bp-flyout" hidden>
+            <div class="card-block flyout-sheet">
+              <p class="panel-kicker">Package</p>
+              <h2 id="derivedStepTitle">Derived paths</h2>
+              <div id="derivedBox" class="derived muted">Fetch or upload a package to derive paths.</div>
+              <label class="adv"><input type="checkbox" id="advToggle" /> Advanced edit</label>
+              <div id="advFields" class="adv-fields" hidden>
+                <div class="field-grid">
+                  <label>contentParentPath <input id="contentParentPath" type="text" /></label>
+                  <label>samplePageName <input id="samplePageName" type="text" /></label>
+                  <label>packageName <input id="packageName" type="text" /></label>
+                  <label>vaultPackageDir <input id="vaultPackageDir" type="text" /></label>
                 </div>
-                <label>Name <input id="bpName" type="text" placeholder="normal-page" /></label>
-                <div id="createModeUpload">
-                  <div class="json-sources">
-                    <label class="json-source">
-                      Upload JSON file
-                      <input id="bpJson" type="file" accept=".json,application/json" />
-                    </label>
-                    <label class="json-source">
-                      Or paste JSON
-                      <textarea id="bpJsonPaste" rows="8" placeholder='{ "jcr:primaryType": "cq:Page", ... }'></textarea>
-                    </label>
-                  </div>
-                  <label>FileVault zip <input id="bpZip" type="file" accept=".zip,application/zip" /></label>
-                </div>
-                <div id="createModeAem" hidden>
-                  <label>Page URL
-                    <input id="bpPageUrl" type="text" placeholder="http://localhost:4502/content/.../page.html" />
+                <button type="button" id="savePackage" class="btn">Save package config</button>
+              </div>
+            </div>
+          </aside>
+
+          <div class="bp-canvas">
+            <div class="card-block" id="createBlueprintSection">
+              <p class="panel-kicker">Create</p>
+              <h2>Create blueprint</h2>
+              <p id="createHelp" class="help help-block">Fetch JSON and FileVault from local AEM Author (credentials in Settings).</p>
+              <label>Name <input id="bpName" type="text" placeholder="normal-page" /></label>
+              <div id="createModeAem">
+                <label>Page URL
+                  <input id="bpPageUrl" type="text" placeholder="http://localhost:4502/content/.../page.html" />
+                </label>
+              </div>
+              <div id="createModeUpload" hidden>
+                <div class="json-sources">
+                  <label class="json-source">
+                    Upload JSON file
+                    <input id="bpJson" type="file" accept=".json,application/json" />
+                  </label>
+                  <label class="json-source">
+                    Or paste JSON
+                    <textarea id="bpJsonPaste" rows="8" placeholder='{ "jcr:primaryType": "cq:Page", ... }'></textarea>
                   </label>
                 </div>
-                <button type="button" id="createBp" class="btn primary">Upload &amp; derive</button>
-                <p id="createBpStatus" class="status"></p>
-              </li>
-              <li>
-                <h3 id="derivedStepTitle">2. Derived package paths</h3>
-                <div id="derivedBox" class="derived muted">Upload a package to derive paths.</div>
-                <label class="adv"><input type="checkbox" id="advToggle" /> Advanced edit</label>
-                <div id="advFields" class="adv-fields" hidden>
-                  <div class="field-grid">
-                    <label>contentParentPath <input id="contentParentPath" type="text" /></label>
-                    <label>samplePageName <input id="samplePageName" type="text" /></label>
-                    <label>packageName <input id="packageName" type="text" /></label>
-                    <label>vaultPackageDir <input id="vaultPackageDir" type="text" /></label>
-                  </div>
-                  <button type="button" id="savePackage" class="btn">Save package config</button>
-                </div>
-              </li>
-              <li>
-                <h3 id="pickerStepTitle">3. Component picker</h3>
-                <p class="help help-block">Select a whole component and/or individual fields. Only chosen items appear in the Word template. Containers are hidden.</p>
-                <div id="picker" class="picker muted">Select a blueprint to load components.</div>
-                <button type="button" id="saveFields" class="btn primary" disabled>Save selection</button>
-              </li>
-            </ol>
+                <label>FileVault zip <input id="bpZip" type="file" accept=".zip,application/zip" /></label>
+              </div>
+              <button type="button" id="createBp" class="btn primary">Fetch &amp; derive</button>
+              <p id="createBpStatus" class="status"></p>
+            </div>
+
+            <div class="card-block">
+              <p class="panel-kicker">Fields</p>
+              <h2 id="pickerStepTitle">Component picker</h2>
+              <p class="help help-block">Select a whole component and/or individual fields. Only chosen items appear in the Word template. Containers are hidden.</p>
+              <div id="picker" class="picker muted">Select a blueprint to load components.</div>
+              <button type="button" id="saveFields" class="btn primary" disabled>Save selection</button>
+            </div>
           </div>
         </div>
       </section>

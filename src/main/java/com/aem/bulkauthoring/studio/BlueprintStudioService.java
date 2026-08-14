@@ -263,9 +263,6 @@ public class BlueprintStudioService {
                 || name.equals("description") || name.equals("content")) {
             return FieldFormat.HTML;
         }
-        if (name.equals("items") || name.equals("tags") || name.endsWith("list")) {
-            return FieldFormat.LIST;
-        }
         return FieldFormat.PLAIN;
     }
 

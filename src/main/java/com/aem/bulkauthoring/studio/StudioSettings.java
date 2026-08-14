@@ -29,6 +29,8 @@ public final class StudioSettings {
     private boolean showCreateBlueprint = true;
     /** Daily authoring default: hide instructional copy. */
     private boolean showHelpText = false;
+    /** How new blueprints are created in Studio: {@code aem} or {@code upload}. */
+    private String createApproach = "aem";
 
     private String aemBaseUrl = DEFAULT_AEM_BASE_URL;
     private String aemUsername = DEFAULT_AEM_USERNAME;
@@ -76,6 +78,18 @@ public final class StudioSettings {
 
     public void setShowHelpText(boolean showHelpText) {
         this.showHelpText = showHelpText;
+    }
+
+    public String getCreateApproach() {
+        return createApproach;
+    }
+
+    public void setCreateApproach(String createApproach) {
+        if ("upload".equalsIgnoreCase(createApproach)) {
+            this.createApproach = "upload";
+        } else {
+            this.createApproach = "aem";
+        }
     }
 
     public String getAemBaseUrl() {
@@ -126,6 +140,7 @@ public final class StudioSettings {
         map.put("showAdaptTab", showAdaptTab);
         map.put("showCreateBlueprint", showCreateBlueprint);
         map.put("showHelpText", showHelpText);
+        map.put("createApproach", createApproach);
         map.put("aemBaseUrl", aemBaseUrl);
         map.put("aemUsername", aemUsername);
         map.put("aemPassword", aemPassword);
@@ -150,6 +165,9 @@ public final class StudioSettings {
         }
         if (body.has("showHelpText")) {
             setShowHelpText(body.get("showHelpText").asBoolean());
+        }
+        if (body.has("createApproach")) {
+            setCreateApproach(body.get("createApproach").asText());
         }
         if (body.has("aemBaseUrl")) {
             setAemBaseUrl(body.get("aemBaseUrl").asText());
@@ -183,6 +201,7 @@ public final class StudioSettings {
         root.put("showAdaptTab", showAdaptTab);
         root.put("showCreateBlueprint", showCreateBlueprint);
         root.put("showHelpText", showHelpText);
+        root.put("createApproach", createApproach);
         root.put("aemBaseUrl", aemBaseUrl);
         root.put("aemUsername", aemUsername);
         root.put("aemPassword", aemPassword);

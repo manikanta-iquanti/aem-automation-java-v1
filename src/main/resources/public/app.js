@@ -8,10 +8,12 @@
       showAdaptTab: false,
       showCreateBlueprint: true,
       showHelpText: false,
+      createApproach: "aem",
       aemBaseUrl: "http://localhost:4502",
       aemUsername: "admin",
       aemPassword: "admin",
     },
+    flyout: null,
     adapt: {
       jobId: null,
       reviews: [],
@@ -86,6 +88,7 @@
       showAdaptTab: !!settings.showAdaptTab,
       showCreateBlueprint: settings.showCreateBlueprint !== false,
       showHelpText: !!settings.showHelpText,
+      createApproach: settings.createApproach === "upload" ? "upload" : "aem",
       aemBaseUrl: settings.aemBaseUrl || "http://localhost:4502",
       aemUsername: settings.aemUsername || "admin",
       aemPassword: settings.aemPassword != null ? settings.aemPassword : "admin",
@@ -101,12 +104,7 @@
 
     const createSection = $("createBlueprintSection");
     createSection.hidden = !s.showCreateBlueprint;
-    $("derivedStepTitle").textContent = s.showCreateBlueprint
-      ? "2. Derived package paths"
-      : "1. Derived package paths";
-    $("pickerStepTitle").textContent = s.showCreateBlueprint
-      ? "3. Component picker"
-      : "2. Component picker";
+    applyCreateModeUi();
 
     fillSettingsFormFromState();
 
@@ -125,6 +123,8 @@
     $("setShowAdapt").checked = s.showAdaptTab;
     $("setShowCreate").checked = s.showCreateBlueprint;
     $("setShowHelp").checked = s.showHelpText;
+    $("setCreateAem").checked = s.createApproach !== "upload";
+    $("setCreateUpload").checked = s.createApproach === "upload";
     $("setDefaultPackage").value = s.defaultPackageName;
     $("setAemBaseUrl").value = s.aemBaseUrl;
     $("setAemUsername").value = s.aemUsername;
@@ -138,6 +138,7 @@
       showAdaptTab: $("setShowAdapt").checked,
       showCreateBlueprint: $("setShowCreate").checked,
       showHelpText: $("setShowHelp").checked,
+      createApproach: $("setCreateUpload").checked ? "upload" : "aem",
       aemBaseUrl: $("setAemBaseUrl").value.trim() || "http://localhost:4502",
       aemUsername: $("setAemUsername").value.trim() || "admin",
       aemPassword: $("setAemPassword").value,
@@ -182,7 +183,12 @@
     if (e.target === $("settingsPanel")) setSettingsOpen(false);
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !$("settingsPanel").hidden) setSettingsOpen(false);
+    if (e.key !== "Escape") return;
+    if (!$("settingsPanel").hidden) {
+      setSettingsOpen(false);
+      return;
+    }
+    if (state.flyout) setFlyout(null);
   });
   $("settingsSave").addEventListener("click", () => {
     saveSettings(settingsFromForm()).catch((e) => {
@@ -214,7 +220,7 @@
     if ($("bpPageUrl")) $("bpPageUrl").value = "";
     if ($("createBpStatus")) $("createBpStatus").textContent = "";
     $("derivedBox").classList.add("muted");
-    $("derivedBox").textContent = "Upload a package to derive paths.";
+    $("derivedBox").textContent = "Fetch or upload a package to derive paths.";
     $("contentParentPath").value = "";
     $("samplePageName").value = "";
     $("packageName").value = "";
@@ -311,22 +317,39 @@
   });
 
   function currentCreateMode() {
-    const checked = document.querySelector('input[name="createMode"]:checked');
-    return checked ? checked.value : "upload";
+    return state.settings.createApproach === "upload" ? "upload" : "aem";
   }
 
   function applyCreateModeUi() {
-    const mode = currentCreateMode();
-    const aem = mode === "aem";
+    const aem = currentCreateMode() === "aem";
     $("createModeUpload").hidden = aem;
     $("createModeAem").hidden = !aem;
     $("createBp").textContent = aem ? "Fetch & derive" : "Upload & derive";
+    const help = $("createHelp");
+    if (help) {
+      help.textContent = aem
+        ? "Fetch JSON and FileVault from local AEM Author (credentials in Settings)."
+        : "Upload blueprint JSON and a FileVault zip.";
+    }
   }
 
-  document.querySelectorAll('input[name="createMode"]').forEach((radio) => {
-    radio.addEventListener("change", applyCreateModeUi);
+  function setFlyout(name) {
+    state.flyout = name;
+    $("flyoutHistory").hidden = name !== "history";
+    $("flyoutPaths").hidden = name !== "paths";
+    $("railHistory").classList.toggle("active", name === "history");
+    $("railPaths").classList.toggle("active", name === "paths");
+    $("railHistory").setAttribute("aria-pressed", name === "history" ? "true" : "false");
+    $("railPaths").setAttribute("aria-pressed", name === "paths" ? "true" : "false");
+    document.querySelector(".bp-workspace").classList.toggle("flyout-open", !!name);
+  }
+
+  $("railHistory").addEventListener("click", () => {
+    setFlyout(state.flyout === "history" ? null : "history");
   });
-  applyCreateModeUi();
+  $("railPaths").addEventListener("click", () => {
+    setFlyout(state.flyout === "paths" ? null : "paths");
+  });
 
   $("bpJson").addEventListener("change", () => {
     if ($("bpJson").files[0]) {
@@ -344,6 +367,7 @@
     fillDerived(created.derived);
     await refreshList();
     await selectBlueprint(created.id, { package: created.derived });
+    setFlyout("paths");
     alert(created.hint || "Blueprint created.");
   }
 
@@ -458,27 +482,52 @@
     $("saveFields").disabled = false;
   }
 
+  function uiFormat(format) {
+    return format === "HTML" || format === "LIST" ? "HTML" : "PLAIN";
+  }
+
+  function formatSwitchHtml(format) {
+    const fmt = uiFormat(format);
+    return `<div class="fmt-switch" role="group" aria-label="Field format">
+      <button type="button" class="fmt-btn${fmt === "HTML" ? " active" : ""}" data-format="HTML" aria-pressed="${fmt === "HTML"}" title="HTML">&lt;&gt;</button>
+      <button type="button" class="fmt-btn${fmt === "PLAIN" ? " active" : ""}" data-format="PLAIN" aria-pressed="${fmt === "PLAIN"}" title="Plain text">Aa</button>
+    </div>`;
+  }
+
+  function bindFormatSwitch(row) {
+    row.querySelectorAll(".fmt-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        row.dataset.format = btn.dataset.format;
+        row.querySelectorAll(".fmt-btn").forEach((b) => {
+          const on = b.dataset.format === row.dataset.format;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+      });
+    });
+  }
+
   function renderPageField(pf) {
-    const row = document.createElement("div");
-    row.className = "component";
-    row.innerHTML = `<h4>Page fields</h4>`;
+    const rowWrap = document.createElement("div");
+    rowWrap.className = "component";
+    const header = document.createElement("div");
+    header.className = "comp-header";
+    header.innerHTML = `<div class="comp-titles"><h4>Page fields</h4></div>`;
+    rowWrap.appendChild(header);
     const propRow = document.createElement("div");
     propRow.className = "prop-row";
     propRow.dataset.page = "1";
     propRow.dataset.property = pf.property;
+    propRow.dataset.format = uiFormat(pf.format);
     propRow.innerHTML = `
       <input type="checkbox" ${pf.selected ? "checked" : ""} />
       <div class="prop-meta">
         <span class="prop-name">${esc(pf.property)}</span>
       </div>
-      <select>
-        <option value="PLAIN">PLAIN</option>
-        <option value="HTML">HTML</option>
-        <option value="LIST">LIST</option>
-      </select>`;
-    propRow.querySelector("select").value = pf.format || "PLAIN";
-    row.appendChild(propRow);
-    return row;
+      ${formatSwitchHtml(pf.format)}`;
+    bindFormatSwitch(propRow);
+    rowWrap.appendChild(propRow);
+    return rowWrap;
   }
 
   function renderComponent(comp) {
@@ -498,8 +547,10 @@
 
     const titles = document.createElement("div");
     titles.className = "comp-titles";
+    const chip = (comp.resourceType || "").split("/").filter(Boolean).pop() || comp.resourceType;
     titles.innerHTML = `<h4>${esc(comp.name || "(component)")}</h4>
-      <div class="rt">${esc(comp.resourceType)}<br>${esc(comp.path)}</div>`;
+      <span class="rt-chip" title="${esc(comp.resourceType)}">${esc(chip)}</span>
+      <div class="rt">${esc(comp.path)}</div>`;
     header.appendChild(titles);
     el.appendChild(header);
 
@@ -536,6 +587,7 @@
     row.dataset.resourceType = resourceType;
     row.dataset.path = path;
     row.dataset.property = prop.property;
+    row.dataset.format = uiFormat(prop.format);
     const sample = previewSample(prop.sample);
     row.innerHTML = `
       <input type="checkbox" ${prop.selected ? "checked" : ""} />
@@ -543,12 +595,8 @@
         <span class="prop-name">${esc(prop.property)}</span>
         ${sample ? `<span class="prop-sample" title="${esc(stripHtml(prop.sample))}">${esc(sample)}</span>` : ""}
       </div>
-      <select>
-        <option value="PLAIN">PLAIN</option>
-        <option value="HTML">HTML</option>
-        <option value="LIST">LIST</option>
-      </select>`;
-    row.querySelector("select").value = prop.format || "PLAIN";
+      ${formatSwitchHtml(prop.format)}`;
+    bindFormatSwitch(row);
     return row;
   }
 
@@ -559,7 +607,7 @@
     $("picker").querySelectorAll(".prop-row").forEach((row) => {
       const checked = row.querySelector('input[type="checkbox"]').checked;
       if (!checked) return;
-      const format = row.querySelector("select").value;
+      const format = uiFormat(row.dataset.format);
       if (row.dataset.page === "1") {
         pageFields.push({ property: row.dataset.property, format });
       } else {

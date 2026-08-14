@@ -35,6 +35,7 @@ Open the **gear** in the header. Preferences persist in `input/studio-settings.j
 | Show Adapt sources | off | Hide DocAdapt when sources are already converted |
 | Show create / upload | on | Hide create section when not adding blueprints |
 | Show help text | off | Restore instructional copy / readiness prose |
+| Create approach | Fetch from AEM | The only create form shown on Blueprints (`aem` or `upload`) |
 | Default package name | `bulk-content` | Seed for new blueprints (override per blueprint under Advanced edit) |
 | AEM base URL | `http://localhost:4502` | Local Author host for **Fetch from AEM** |
 | AEM username / password | `admin` / `admin` | Basic Auth for Author (local Studio only) |
@@ -44,14 +45,16 @@ Open the **gear** in the header. Preferences persist in `input/studio-settings.j
 - **Daily authoring** — Generate off, Adapt off, create on, help off (focused Build workflow)
 - **Full setup** — all feature toggles and help on
 
-## Create blueprint modes
+## Create blueprint
 
-On **Blueprints → 1. Create blueprint**:
+The Blueprints tab shows **one** create form, chosen in Settings (**Create approach**). Change it there; the other method is hidden on the page.
 
-| Mode | Input | Behavior |
-|------|-------|----------|
-| **Upload files** | JSON file or paste + FileVault zip | Same as before → `POST /api/blueprints` |
-| **Fetch from AEM** | Page URL or content path | Studio GETs `{path}.infinity.json` and builds a Package Manager zip filtered to that page → `POST /api/blueprints/from-aem` |
+History and derived package paths sit behind the left icon rail (clock / paths) so the canvas stays on create + field picker.
+
+| Approach | Input | Behavior |
+|----------|-------|----------|
+| **Fetch from AEM** (default) | Page URL or content path | Studio GETs `{path}.infinity.json` and builds a Package Manager zip filtered to that page → `POST /api/blueprints/from-aem` |
+| **Upload files** | JSON file or paste + FileVault zip | `POST /api/blueprints` |
 
 Example page URL: `http://localhost:4502/content/my-aem-site53/us/en/articles/normal-page1.html`  
 Paths like `/content/.../page` also work. Credentials come from Settings (local Author only; AEMaaCS tokens are out of scope).
@@ -69,8 +72,8 @@ You no longer need a Java `*Profile` class or a `BlueprintProfileRegistry` edit 
 **First-time setup** — use preset **Full setup**, then:
 
 1. Ensure Settings has your local AEM Author URL and credentials.
-2. In **Blueprints**, choose **Fetch from AEM**, paste the page URL, **Fetch & derive** (or use **Upload files** with manual JSON + zip).
-3. Review derived paths, select fields, **Save field selection**.
+2. In **Blueprints**, paste the page URL and **Fetch & derive** (or switch **Create approach** in Settings to **Upload files**).
+3. Open **Paths** on the left rail to review derived package config, then pick fields and **Save selection**.
 4. Open **Generate template** → **Generate** → download the DOCX; copy it for authors.
 5. Optionally use **Adapt sources** for client DOCX → approve → send to articles.
 

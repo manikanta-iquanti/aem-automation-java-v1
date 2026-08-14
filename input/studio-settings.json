@@ -4,6 +4,7 @@
   "showAdaptTab" : true,
   "showCreateBlueprint" : true,
   "showHelpText" : true,
+  "createApproach" : "aem",
   "aemBaseUrl" : "http://localhost:8080",
   "aemUsername" : "admin",
   "aemPassword" : "admin"
