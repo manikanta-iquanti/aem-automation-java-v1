@@ -178,6 +178,12 @@
     setSettingsOpen(open);
   });
   $("settingsClose").addEventListener("click", () => setSettingsOpen(false));
+  $("settingsPanel").addEventListener("click", (e) => {
+    if (e.target === $("settingsPanel")) setSettingsOpen(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !$("settingsPanel").hidden) setSettingsOpen(false);
+  });
   $("settingsSave").addEventListener("click", () => {
     saveSettings(settingsFromForm()).catch((e) => {
       $("settingsStatus").textContent = e.message;
@@ -234,7 +240,7 @@
     const ul = $("blueprintList");
     ul.innerHTML = "";
     if (!list.length) {
-      ul.innerHTML = "<li class='muted'>No blueprints yet.</li>";
+      ul.innerHTML = "<li class='empty-state'>No blueprints yet.</li>";
       return;
     }
     list.forEach((bp) => {
