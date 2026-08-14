@@ -21,10 +21,12 @@ public final class StudioSettings {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private String defaultPackageName = DEFAULT_PACKAGE_NAME;
-    /** Daily authoring default: Generate hidden until setup is needed. */
+    /** Daily authoring default: Upload articles tab hidden until needed. */
     private boolean showGenerateTab = false;
     /** Daily authoring default: Adapt hidden until source conversion is needed. */
     private boolean showAdaptTab = false;
+    /** Opt-in download of the generated Word template. */
+    private boolean showDownloadTemplate = false;
     /** Keep create/upload available when adding a new blueprint. */
     private boolean showCreateBlueprint = true;
     /** Daily authoring default: hide instructional copy. */
@@ -62,6 +64,14 @@ public final class StudioSettings {
 
     public void setShowAdaptTab(boolean showAdaptTab) {
         this.showAdaptTab = showAdaptTab;
+    }
+
+    public boolean isShowDownloadTemplate() {
+        return showDownloadTemplate;
+    }
+
+    public void setShowDownloadTemplate(boolean showDownloadTemplate) {
+        this.showDownloadTemplate = showDownloadTemplate;
     }
 
     public boolean isShowCreateBlueprint() {
@@ -138,6 +148,7 @@ public final class StudioSettings {
         map.put("defaultPackageName", defaultPackageName);
         map.put("showGenerateTab", showGenerateTab);
         map.put("showAdaptTab", showAdaptTab);
+        map.put("showDownloadTemplate", showDownloadTemplate);
         map.put("showCreateBlueprint", showCreateBlueprint);
         map.put("showHelpText", showHelpText);
         map.put("createApproach", createApproach);
@@ -159,6 +170,9 @@ public final class StudioSettings {
         }
         if (body.has("showAdaptTab")) {
             setShowAdaptTab(body.get("showAdaptTab").asBoolean());
+        }
+        if (body.has("showDownloadTemplate")) {
+            setShowDownloadTemplate(body.get("showDownloadTemplate").asBoolean());
         }
         if (body.has("showCreateBlueprint")) {
             setShowCreateBlueprint(body.get("showCreateBlueprint").asBoolean());
@@ -199,6 +213,7 @@ public final class StudioSettings {
         root.put("defaultPackageName", defaultPackageName);
         root.put("showGenerateTab", showGenerateTab);
         root.put("showAdaptTab", showAdaptTab);
+        root.put("showDownloadTemplate", showDownloadTemplate);
         root.put("showCreateBlueprint", showCreateBlueprint);
         root.put("showHelpText", showHelpText);
         root.put("createApproach", createApproach);

@@ -6,38 +6,33 @@
   <title>Blueprint Studio</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
+<body class="bp-tab-active">
   <div class="app">
     <div class="chrome">
       <header class="top">
         <div class="brand">
           <span class="brand-mark" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
               <rect x="5" y="5" width="14" height="14" rx="1.5" />
               <path d="M9 5V3M15 5V3M9 21v-2M15 21v-2M5 9H3M5 15H3M21 9h-2M21 15h-2" />
               <rect x="9" y="9" width="6" height="6" fill="currentColor" stroke="none" opacity="0.85" />
             </svg>
           </span>
-          <div>
-            <p class="brand-kicker">AEM</p>
-            <h1>Author's Studio</h1>
-            <p class="tagline help-block">Local AEM bulk content authoring</p>
-          </div>
+          <h1>Author's Studio</h1>
         </div>
+        <nav class="tabs" role="tablist">
+          <button type="button" class="tab active" data-tab="blueprints">Blueprints</button>
+          <button type="button" class="tab" data-tab="generate" id="tabGenerate" disabled>Upload articles</button>
+          <button type="button" class="tab" data-tab="adapt" id="tabAdapt">Adapt sources</button>
+          <button type="button" class="tab" data-tab="build" id="tabBuild" disabled>Build package</button>
+        </nav>
         <button type="button" id="settingsToggle" class="btn-icon" aria-label="Settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
           </svg>
         </button>
       </header>
-
-      <nav class="tabs" role="tablist">
-        <button type="button" class="tab active" data-tab="blueprints">Blueprints</button>
-        <button type="button" class="tab" data-tab="generate" id="tabGenerate" disabled>Generate template</button>
-        <button type="button" class="tab" data-tab="adapt" id="tabAdapt">Adapt sources</button>
-        <button type="button" class="tab" data-tab="build" id="tabBuild" disabled>Build package</button>
-      </nav>
     </div>
 
     <aside id="settingsPanel" class="settings-overlay" hidden>
@@ -52,12 +47,16 @@
           <button type="button" id="presetFull" class="btn ghost">Full setup</button>
         </div>
         <label class="settings-row">
-          <span>Show Generate template</span>
+          <span>Show Upload articles</span>
           <input type="checkbox" id="setShowGenerate" />
         </label>
         <label class="settings-row">
           <span>Show Adapt sources</span>
           <input type="checkbox" id="setShowAdapt" />
+        </label>
+        <label class="settings-row">
+          <span>Show download template DOCX</span>
+          <input type="checkbox" id="setShowDownloadTemplate" />
         </label>
         <label class="settings-row">
           <span>Show create / upload</span>
@@ -116,11 +115,17 @@
               </svg>
               <span class="rail-label">Paths</span>
             </button>
+            <button type="button" id="railPreview" class="rail-btn" disabled aria-pressed="false" aria-controls="flyoutPreview" title="Preview template">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span class="rail-label">Preview</span>
+            </button>
           </nav>
 
           <aside id="flyoutHistory" class="bp-flyout" hidden>
             <div class="card-block flyout-sheet">
-              <p class="panel-kicker">History</p>
               <h2>Saved blueprints</h2>
               <p class="help help-block">Click to load. Click the same one again to clear and start a new blueprint.</p>
               <ul id="blueprintList" class="list"></ul>
@@ -131,7 +136,6 @@
 
           <aside id="flyoutPaths" class="bp-flyout" hidden>
             <div class="card-block flyout-sheet">
-              <p class="panel-kicker">Package</p>
               <h2 id="derivedStepTitle">Derived paths</h2>
               <div id="derivedBox" class="derived muted">Fetch or upload a package to derive paths.</div>
               <label class="adv"><input type="checkbox" id="advToggle" /> Advanced edit</label>
@@ -147,16 +151,25 @@
             </div>
           </aside>
 
+          <aside id="flyoutPreview" class="bp-flyout" hidden>
+            <div class="card-block flyout-sheet">
+              <h2>Template preview</h2>
+              <p class="help help-block">Markers and seed values written into the DOCX — verify before sharing with authors.</p>
+              <div id="previewBlocks" class="preview-blocks"></div>
+            </div>
+          </aside>
+
           <div class="bp-canvas">
-            <div class="card-block" id="createBlueprintSection">
-              <p class="panel-kicker">Create</p>
-              <h2>Create blueprint</h2>
+            <div class="card-block create-compact" id="createBlueprintSection">
               <p id="createHelp" class="help help-block">Fetch JSON and FileVault from local AEM Author (credentials in Settings).</p>
-              <label>Name <input id="bpName" type="text" placeholder="normal-page" /></label>
-              <div id="createModeAem">
-                <label>Page URL
-                  <input id="bpPageUrl" type="text" placeholder="http://localhost:4502/content/.../page.html" />
-                </label>
+              <div class="create-row">
+                <label class="create-name">Name <input id="bpName" type="text" placeholder="normal-page" /></label>
+                <div id="createModeAem" class="create-url">
+                  <label>Page URL
+                    <input id="bpPageUrl" type="text" placeholder="http://localhost:4502/content/.../page.html" />
+                  </label>
+                </div>
+                <button type="button" id="createBp" class="btn primary create-cta">Fetch &amp; derive</button>
               </div>
               <div id="createModeUpload" hidden>
                 <div class="json-sources">
@@ -171,40 +184,37 @@
                 </div>
                 <label>FileVault zip <input id="bpZip" type="file" accept=".zip,application/zip" /></label>
               </div>
-              <button type="button" id="createBp" class="btn primary">Fetch &amp; derive</button>
               <p id="createBpStatus" class="status"></p>
             </div>
 
             <div class="card-block">
-              <p class="panel-kicker">Fields</p>
               <h2 id="pickerStepTitle">Component picker</h2>
               <p class="help help-block">Select a whole component and/or individual fields. Only chosen items appear in the Word template. Containers are hidden.</p>
               <div id="picker" class="picker muted">Select a blueprint to load components.</div>
-              <button type="button" id="saveFields" class="btn primary" disabled>Save selection</button>
             </div>
+          </div>
+        </div>
+
+        <div id="bpFooter" class="bp-footer">
+          <div class="bp-footer-inner">
+            <p id="bpFooterStatus" class="status"></p>
+            <button type="button" id="saveFields" class="btn primary" disabled>Save selection</button>
+            <a id="downloadTemplate" class="btn ghost" hidden href="#">Download DOCX</a>
+            <button type="button" id="footerPreview" class="btn-icon" disabled aria-pressed="false" aria-controls="flyoutPreview" aria-label="Preview template" title="Preview template">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
           </div>
         </div>
       </section>
 
       <section id="panel-generate" class="panel">
-        <div class="card-block">
-          <p class="panel-kicker">Phase 1</p>
-          <h2>Generate template</h2>
-          <p class="help-block">Creates an editable Word template from the selected blueprint. No articles needed for this step.</p>
-          <p id="generateStatus" class="status"></p>
-          <button type="button" id="runGenerate" class="btn primary">Generate</button>
-          <a id="downloadTemplate" class="btn ghost" hidden href="#">Download DOCX</a>
-        </div>
-
-        <div id="templatePreview" class="preview-panel" hidden>
-          <h3>Template preview</h3>
-          <p class="help help-block">Markers and seed values written into the DOCX — verify before sharing with authors.</p>
-          <div id="previewBlocks" class="preview-blocks"></div>
-        </div>
-
         <div class="articles-panel">
-          <h3>Upload articles</h3>
-          <p class="help help-block">After authors fill copies of the template, upload the `.docx` files here (also available on Build package).</p>
+          <p class="panel-kicker">Articles</p>
+          <h2>Upload prepared articles</h2>
+          <p class="help-block">After authors fill copies of the template, upload the `.docx` files here (also available on Build package).</p>
           <label>Article DOCX files <input id="articlesGenerate" type="file" accept=".docx" multiple /></label>
           <button type="button" id="uploadArticlesGenerate" class="btn">Upload articles</button>
           <p id="articlesGenerateStatus" class="status"></p>
@@ -295,6 +305,11 @@
       </section>
     </main>
   </div>
+  <button type="button" id="backToTop" class="back-to-top" hidden aria-label="Back to top" title="Back to top">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+      <path d="M12 19V5M5 12l7-7 7 7" />
+    </svg>
+  </button>
   <script src="/app.js"></script>
 </body>
 </html>

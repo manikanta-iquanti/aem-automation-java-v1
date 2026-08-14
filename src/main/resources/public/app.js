@@ -6,6 +6,7 @@
       defaultPackageName: "bulk-content",
       showGenerateTab: false,
       showAdaptTab: false,
+      showDownloadTemplate: false,
       showCreateBlueprint: true,
       showHelpText: false,
       createApproach: "aem",
@@ -13,6 +14,7 @@
       aemUsername: "admin",
       aemPassword: "admin",
     },
+    hasTemplate: false,
     flyout: null,
     adapt: {
       jobId: null,
@@ -74,6 +76,7 @@
     document.querySelectorAll(".panel").forEach((p) => {
       p.classList.toggle("active", p.id === `panel-${name}`);
     });
+    document.body.classList.toggle("bp-tab-active", name === "blueprints");
   }
 
   function activeTabName() {
@@ -86,6 +89,7 @@
       defaultPackageName: settings.defaultPackageName || "bulk-content",
       showGenerateTab: !!settings.showGenerateTab,
       showAdaptTab: !!settings.showAdaptTab,
+      showDownloadTemplate: !!settings.showDownloadTemplate,
       showCreateBlueprint: settings.showCreateBlueprint !== false,
       showHelpText: !!settings.showHelpText,
       createApproach: settings.createApproach === "upload" ? "upload" : "aem",
@@ -107,6 +111,7 @@
     applyCreateModeUi();
 
     fillSettingsFormFromState();
+    applyDownloadVisibility();
 
     const current = activeTabName();
     if ((current === "generate" && !s.showGenerateTab)
@@ -121,6 +126,7 @@
     const s = state.settings;
     $("setShowGenerate").checked = s.showGenerateTab;
     $("setShowAdapt").checked = s.showAdaptTab;
+    $("setShowDownloadTemplate").checked = s.showDownloadTemplate;
     $("setShowCreate").checked = s.showCreateBlueprint;
     $("setShowHelp").checked = s.showHelpText;
     $("setCreateAem").checked = s.createApproach !== "upload";
@@ -136,6 +142,7 @@
       defaultPackageName: $("setDefaultPackage").value.trim() || "bulk-content",
       showGenerateTab: $("setShowGenerate").checked,
       showAdaptTab: $("setShowAdapt").checked,
+      showDownloadTemplate: $("setShowDownloadTemplate").checked,
       showCreateBlueprint: $("setShowCreate").checked,
       showHelpText: $("setShowHelp").checked,
       createApproach: $("setCreateUpload").checked ? "upload" : "aem",
@@ -198,12 +205,14 @@
   $("presetDaily").addEventListener("click", () => {
     $("setShowGenerate").checked = false;
     $("setShowAdapt").checked = false;
+    $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
     $("setShowHelp").checked = false;
   });
   $("presetFull").addEventListener("click", () => {
     $("setShowGenerate").checked = true;
     $("setShowAdapt").checked = true;
+    $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
     $("setShowHelp").checked = true;
   });
@@ -230,14 +239,13 @@
     $("picker").classList.add("muted");
     $("picker").textContent = "Select a blueprint to load components.";
     $("saveFields").disabled = true;
-    $("downloadTemplate").hidden = true;
     $("downloadPackage").hidden = true;
-    $("generateStatus").textContent = "";
+    $("bpFooterStatus").textContent = "";
     $("buildStatus").textContent = "";
-    $("templatePreview").hidden = true;
     $("previewBlocks").innerHTML = "";
     $("articlesGenerateStatus").textContent = "";
     $("articlesBuildStatus").textContent = "";
+    setPreviewAvailable(false);
     refreshReadiness();
   }
 
@@ -288,24 +296,26 @@
     try {
       const preview = await api(`/api/blueprints/${id}/template-preview`);
       renderTemplatePreview(preview.blocks || []);
-      const link = $("downloadTemplate");
-      link.hidden = false;
-      link.href = `/api/blueprints/${id}/download/template`;
-      $("generateStatus").textContent = "Existing template: " + preview.path;
+      setPreviewAvailable(true);
     } catch {
-      $("templatePreview").hidden = true;
       $("previewBlocks").innerHTML = "";
-      $("downloadTemplate").hidden = true;
+      setPreviewAvailable(false);
     }
   }
 
   function fillDerived(pkg) {
-    $("derivedBox").classList.remove("muted");
-    $("derivedBox").textContent =
-      `contentParentPath: ${pkg.contentParentPath}\n` +
-      `samplePageName:     ${pkg.samplePageName}\n` +
-      `packageName:        ${pkg.packageName}\n` +
-      `vaultPackageDir:    ${pkg.vaultPackageDir}`;
+    const box = $("derivedBox");
+    box.classList.remove("muted");
+    const rows = [
+      ["contentParentPath", pkg.contentParentPath],
+      ["samplePageName", pkg.samplePageName],
+      ["packageName", pkg.packageName],
+      ["vaultPackageDir", pkg.vaultPackageDir],
+    ];
+    box.innerHTML = `<dl class="derived-list">${rows.map(([label, value]) => {
+      const text = value == null || value === "" ? "—" : String(value);
+      return `<div class="derived-row"><dt>${esc(label)}</dt><dd title="${esc(text)}">${esc(text)}</dd></div>`;
+    }).join("")}</dl>`;
     $("contentParentPath").value = pkg.contentParentPath || "";
     $("samplePageName").value = pkg.samplePageName || "";
     $("packageName").value = pkg.packageName || "";
@@ -337,11 +347,39 @@
     state.flyout = name;
     $("flyoutHistory").hidden = name !== "history";
     $("flyoutPaths").hidden = name !== "paths";
+    $("flyoutPreview").hidden = name !== "preview";
     $("railHistory").classList.toggle("active", name === "history");
     $("railPaths").classList.toggle("active", name === "paths");
+    $("railPreview").classList.toggle("active", name === "preview");
     $("railHistory").setAttribute("aria-pressed", name === "history" ? "true" : "false");
     $("railPaths").setAttribute("aria-pressed", name === "paths" ? "true" : "false");
+    $("railPreview").setAttribute("aria-pressed", name === "preview" ? "true" : "false");
+    $("footerPreview").setAttribute("aria-pressed", name === "preview" ? "true" : "false");
     document.querySelector(".bp-workspace").classList.toggle("flyout-open", !!name);
+  }
+
+  function applyDownloadVisibility() {
+    const link = $("downloadTemplate");
+    const show = !!(state.settings.showDownloadTemplate && state.hasTemplate && state.selectedId);
+    link.hidden = !show;
+    if (show) {
+      link.href = `/api/blueprints/${state.selectedId}/download/template`;
+    }
+  }
+
+  function setPreviewAvailable(available) {
+    state.hasTemplate = !!available;
+    $("railPreview").disabled = !available;
+    $("footerPreview").disabled = !available;
+    if (!available && state.flyout === "preview") {
+      setFlyout(null);
+    }
+    applyDownloadVisibility();
+  }
+
+  function togglePreviewFlyout() {
+    if ($("railPreview").disabled) return;
+    setFlyout(state.flyout === "preview" ? null : "preview");
   }
 
   $("railHistory").addEventListener("click", () => {
@@ -350,6 +388,8 @@
   $("railPaths").addEventListener("click", () => {
     setFlyout(state.flyout === "paths" ? null : "paths");
   });
+  $("railPreview").addEventListener("click", togglePreviewFlyout);
+  $("footerPreview").addEventListener("click", togglePreviewFlyout);
 
   $("bpJson").addEventListener("change", () => {
     if ($("bpJson").files[0]) {
@@ -619,14 +659,33 @@
         });
       }
     });
-    await api(`/api/blueprints/${state.selectedId}/fields`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields, pageFields }),
-    });
-    await refreshList();
-    await refreshReadiness();
-    alert("Selection saved. Template will include only chosen components/fields.");
+    const status = $("bpFooterStatus");
+    $("saveFields").disabled = true;
+    status.textContent = "Saving…";
+    try {
+      await api(`/api/blueprints/${state.selectedId}/fields`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, pageFields }),
+      });
+      await refreshList();
+      await refreshReadiness();
+      status.textContent = "Generating…";
+      try {
+        const result = await api(`/api/blueprints/${state.selectedId}/generate-template`, {
+          method: "POST",
+        });
+        renderTemplatePreview(result.blocks || []);
+        setPreviewAvailable(true);
+        status.textContent = "Template ready";
+      } catch (e) {
+        status.textContent = "Selection saved. Generate failed: " + e.message;
+      }
+    } catch (e) {
+      status.textContent = e.message;
+    } finally {
+      $("saveFields").disabled = !state.selectedId;
+    }
   });
 
   async function refreshReadiness() {
@@ -645,7 +704,7 @@
     }
     const r = await api(`/api/blueprints/${state.selectedId}/readiness`);
     state.readiness = r;
-    tabGenerate.disabled = !r.generateTemplate.ready;
+    tabGenerate.disabled = false;
     // Open Build once package setup is ready — articles can be uploaded on that tab
     const buildSetupReady = !!(r.buildPackage.setupReady || r.buildPackage.ready);
     tabBuild.disabled = !buildSetupReady;
@@ -655,9 +714,6 @@
       hint.textContent = "";
     } else {
       const missing = [];
-      if (state.settings.showGenerateTab && !r.generateTemplate.ready) {
-        missing.push("Generate needs: " + (r.generateTemplate.missing.join(", ") || "—"));
-      }
       if (!r.buildPackage.ready) {
         missing.push("Build needs: " + (r.buildPackage.missing.join(", ") || "—"));
       }
@@ -674,7 +730,6 @@
       ? ""
       : "Missing: " + r.buildPackage.missing.join(", ");
     $("runBuild").disabled = !r.buildPackage.ready;
-    $("runGenerate").disabled = !r.generateTemplate.ready;
     renderArticleLists(r.buildPackage.articles || []);
   }
 
@@ -700,14 +755,12 @@
   }
 
   function renderTemplatePreview(blocks) {
-    const panel = $("templatePreview");
     const box = $("previewBlocks");
     box.innerHTML = "";
     if (!blocks || !blocks.length) {
-      panel.hidden = true;
+      box.innerHTML = "<p class='muted'>No preview blocks.</p>";
       return;
     }
-    panel.hidden = false;
     blocks.forEach((block) => {
       const el = document.createElement("div");
       el.className = "preview-block";
@@ -749,24 +802,6 @@
   });
   $("uploadArticlesBuild").addEventListener("click", () => {
     uploadArticlesFrom("articles", "articlesBuildStatus");
-  });
-
-  $("runGenerate").addEventListener("click", async () => {
-    if (!state.selectedId) return;
-    $("generateStatus").textContent = "Generating…";
-    try {
-      const result = await api(`/api/blueprints/${state.selectedId}/generate-template`, {
-        method: "POST",
-      });
-      $("generateStatus").textContent = "Template written to " + result.path;
-      const link = $("downloadTemplate");
-      link.hidden = false;
-      link.href = `/api/blueprints/${state.selectedId}/download/template`;
-      renderTemplatePreview(result.blocks || []);
-    } catch (e) {
-      $("generateStatus").textContent = e.message;
-      $("templatePreview").hidden = true;
-    }
   });
 
   $("runBuild").addEventListener("click", async () => {
@@ -1115,4 +1150,15 @@
   loadAdaptTemplates().catch(() => {});
   loadAdaptRecipes().catch(() => {});
   refreshList().catch((e) => alert(e.message));
+
+  const backToTop = $("backToTop");
+  function syncBackToTop() {
+    const y = window.scrollY || document.documentElement.scrollTop;
+    backToTop.hidden = y < 240;
+  }
+  window.addEventListener("scroll", syncBackToTop, { passive: true });
+  backToTop.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  syncBackToTop();
 })();
