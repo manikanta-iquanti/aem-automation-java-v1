@@ -31,6 +31,8 @@ public final class StudioSettings {
     private boolean showHelpText = false;
     /** How new blueprints are created in Studio: {@code aem} or {@code upload}. */
     private String createApproach = "aem";
+    /** What happens after building a package: {@code download} or {@code install}. */
+    private String deliveryMethod = "download";
 
     private String aemBaseUrl = DEFAULT_AEM_BASE_URL;
     private String aemUsername = DEFAULT_AEM_USERNAME;
@@ -92,6 +94,18 @@ public final class StudioSettings {
         }
     }
 
+    public String getDeliveryMethod() {
+        return deliveryMethod;
+    }
+
+    public void setDeliveryMethod(String deliveryMethod) {
+        if ("install".equalsIgnoreCase(deliveryMethod)) {
+            this.deliveryMethod = "install";
+        } else {
+            this.deliveryMethod = "download";
+        }
+    }
+
     public String getAemBaseUrl() {
         return aemBaseUrl;
     }
@@ -141,6 +155,7 @@ public final class StudioSettings {
         map.put("showCreateBlueprint", showCreateBlueprint);
         map.put("showHelpText", showHelpText);
         map.put("createApproach", createApproach);
+        map.put("deliveryMethod", deliveryMethod);
         map.put("aemBaseUrl", aemBaseUrl);
         map.put("aemUsername", aemUsername);
         map.put("aemPassword", aemPassword);
@@ -168,6 +183,9 @@ public final class StudioSettings {
         }
         if (body.has("createApproach")) {
             setCreateApproach(body.get("createApproach").asText());
+        }
+        if (body.has("deliveryMethod")) {
+            setDeliveryMethod(body.get("deliveryMethod").asText());
         }
         if (body.has("aemBaseUrl")) {
             setAemBaseUrl(body.get("aemBaseUrl").asText());
@@ -202,6 +220,7 @@ public final class StudioSettings {
         root.put("showCreateBlueprint", showCreateBlueprint);
         root.put("showHelpText", showHelpText);
         root.put("createApproach", createApproach);
+        root.put("deliveryMethod", deliveryMethod);
         root.put("aemBaseUrl", aemBaseUrl);
         root.put("aemUsername", aemUsername);
         root.put("aemPassword", aemPassword);

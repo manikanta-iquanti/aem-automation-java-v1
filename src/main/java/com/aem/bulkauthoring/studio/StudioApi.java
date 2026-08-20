@@ -229,9 +229,32 @@ public final class StudioApi {
                     uploaded.add(dest);
                 }
                 File zip = studio.buildPackage(id, uploaded);
+                StudioSettings settings = StudioSettings.load();
                 ObjectNode result = mapper.createObjectNode();
                 result.put("path", zip.getPath().replace('\\', '/'));
                 result.put("absolutePath", zip.getAbsolutePath());
+                result.put("installed", false);
+                if ("install".equals(settings.getDeliveryMethod())) {
+                    AemAuthorClient aem = new AemAuthorClient(
+                            settings.getAemBaseUrl(),
+                            settings.getAemUsername(),
+                            settings.getAemPassword());
+                    try {
+                        String installMessage = aem.uploadAndInstall(zip);
+                        result.put("installed", true);
+                        result.put("installMessage", installMessage);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        result.put("error", "Package built, but AEM installation was interrupted");
+                        ctx.status(500).json(result);
+                        return;
+                    } catch (IOException | IllegalArgumentException e) {
+                        result.put("error", "Package built, but AEM installation failed: "
+                                + e.getMessage());
+                        ctx.status(502).json(result);
+                        return;
+                    }
+                }
                 ctx.json(result);
             } catch (IllegalStateException e) {
                 ctx.status(400).json(error(e.getMessage()));

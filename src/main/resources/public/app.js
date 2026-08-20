@@ -9,6 +9,7 @@
       showCreateBlueprint: true,
       showHelpText: false,
       createApproach: "aem",
+      deliveryMethod: "download",
       aemBaseUrl: "http://localhost:4502",
       aemUsername: "admin",
       aemPassword: "admin",
@@ -63,7 +64,9 @@
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { error: text }; }
     if (!res.ok) {
-      throw new Error((data && data.error) || res.statusText || "Request failed");
+      const error = new Error((data && data.error) || res.statusText || "Request failed");
+      error.data = data;
+      throw error;
     }
     return data;
   }
@@ -91,6 +94,7 @@
       showCreateBlueprint: settings.showCreateBlueprint !== false,
       showHelpText: !!settings.showHelpText,
       createApproach: settings.createApproach === "upload" ? "upload" : "aem",
+      deliveryMethod: settings.deliveryMethod === "install" ? "install" : "download",
       aemBaseUrl: settings.aemBaseUrl || "http://localhost:4502",
       aemUsername: settings.aemUsername || "admin",
       aemPassword: settings.aemPassword != null ? settings.aemPassword : "admin",
@@ -105,6 +109,9 @@
     const createSection = $("createBlueprintSection");
     createSection.hidden = !s.showCreateBlueprint;
     applyCreateModeUi();
+    $("runBuild").textContent = s.deliveryMethod === "install"
+      ? "Build and install"
+      : "Build package";
 
     fillSettingsFormFromState();
     applyDownloadVisibility();
@@ -125,6 +132,8 @@
     $("setShowHelp").checked = s.showHelpText;
     $("setCreateAem").checked = s.createApproach !== "upload";
     $("setCreateUpload").checked = s.createApproach === "upload";
+    $("setDeliveryDownload").checked = s.deliveryMethod !== "install";
+    $("setDeliveryInstall").checked = s.deliveryMethod === "install";
     $("setDefaultPackage").value = s.defaultPackageName;
     $("setAemBaseUrl").value = s.aemBaseUrl;
     $("setAemUsername").value = s.aemUsername;
@@ -139,6 +148,7 @@
       showCreateBlueprint: $("setShowCreate").checked,
       showHelpText: $("setShowHelp").checked,
       createApproach: $("setCreateUpload").checked ? "upload" : "aem",
+      deliveryMethod: $("setDeliveryInstall").checked ? "install" : "download",
       aemBaseUrl: $("setAemBaseUrl").value.trim() || "http://localhost:4502",
       aemUsername: $("setAemUsername").value.trim() || "admin",
       aemPassword: $("setAemPassword").value,
@@ -789,22 +799,32 @@
 
   $("runBuild").addEventListener("click", async () => {
     if (!state.selectedId) return;
+    const installToAem = state.settings.deliveryMethod === "install";
     const files = $("articles").files;
     const fd = new FormData();
     for (const f of files) fd.append("articles", f);
-    $("buildStatus").textContent = "Building…";
+    $("buildStatus").textContent = installToAem
+      ? "Building and installing to AEM…"
+      : "Building…";
     try {
       const result = await api(`/api/blueprints/${state.selectedId}/build-package`, {
         method: "POST",
         body: fd,
       });
-      $("buildStatus").textContent = "Package written to " + result.path;
+      $("buildStatus").textContent = result.installed
+        ? (result.installMessage || "Package installed in AEM.")
+        : "Package written to " + result.path;
       const link = $("downloadPackage");
       link.hidden = false;
       link.href = `/api/blueprints/${state.selectedId}/download/package`;
       await refreshReadiness();
     } catch (e) {
       $("buildStatus").textContent = e.message;
+      if (e.data && e.data.path) {
+        const link = $("downloadPackage");
+        link.hidden = false;
+        link.href = `/api/blueprints/${state.selectedId}/download/package`;
+      }
       await refreshReadiness();
     }
   });

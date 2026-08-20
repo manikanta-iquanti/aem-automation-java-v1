@@ -1,10 +1,11 @@
 {
   "defaultPackageName" : "bulk-content",
-  "showGenerateTab" : true,
-  "showAdaptTab" : false,
+  "showAdaptTab" : true,
+  "showDownloadTemplate" : false,
   "showCreateBlueprint" : true,
   "showHelpText" : true,
   "createApproach" : "aem",
+  "deliveryMethod" : "install",
   "aemBaseUrl" : "http://localhost:8080",
   "aemUsername" : "admin",
   "aemPassword" : "admin"

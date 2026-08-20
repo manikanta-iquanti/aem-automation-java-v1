@@ -74,6 +74,10 @@
           </div>
           <div class="settings-col">
             <p class="settings-presets-label">Package</p>
+            <div class="mode-toggle" role="radiogroup" aria-label="Package delivery">
+              <label class="mode-option"><input type="radio" name="deliveryMethod" id="setDeliveryDownload" value="download" /> Download zip</label>
+              <label class="mode-option"><input type="radio" name="deliveryMethod" id="setDeliveryInstall" value="install" /> Install to AEM</label>
+            </div>
             <label class="settings-row settings-row-stack">
               <span>Default package name</span>
               <input type="text" id="setDefaultPackage" placeholder="bulk-content" />

@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -26,6 +28,8 @@ public final class AemAuthorClient {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String PACKAGE_GROUP = "studio";
+    /** Must match the group written by VaultMetadataWriter for generated packages. */
+    private static final String GENERATED_PACKAGE_GROUP = "my_packages";
 
     private final String baseUrl;
     private final String basicAuthHeader;
@@ -157,6 +161,85 @@ public final class AemAuthorClient {
     public InputStream exportPagePackageStream(String pageUrlOrPath)
             throws IOException, InterruptedException {
         return new ByteArrayInputStream(exportPagePackage(pageUrlOrPath));
+    }
+
+    /**
+     * Uploads a FileVault zip to Package Manager and installs the uploaded package.
+     *
+     * @return the Package Manager success message, when provided
+     */
+    public String uploadAndInstall(File zip) throws IOException, InterruptedException {
+        if (zip == null || !zip.isFile()) {
+            throw new IllegalArgumentException("Package zip not found");
+        }
+        if (!zip.getName().toLowerCase().endsWith(".zip")) {
+            throw new IllegalArgumentException("Package must be a .zip file: " + zip.getName());
+        }
+        if (!zip.getName().matches("[A-Za-z0-9][A-Za-z0-9._-]*\\.zip")) {
+            throw new IllegalArgumentException(
+                    "Package filename may contain only letters, numbers, dots, underscores, and hyphens");
+        }
+
+        String boundary = "----StudioBoundary" + UUID.randomUUID().toString().replace("-", "");
+        String safeFilename = zip.getName()
+                .replace("\r", "_")
+                .replace("\n", "_")
+                .replace("\"", "_");
+        byte[] prefix = (
+                "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"force\"\r\n\r\n"
+                        + "true\r\n"
+                        + "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"package\"; filename=\""
+                        + safeFilename + "\"\r\n"
+                        + "Content-Type: application/zip\r\n\r\n")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        byte[] suffix = ("\r\n--" + boundary + "--\r\n")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        ByteArrayOutputStream multipart = new ByteArrayOutputStream();
+        multipart.write(prefix);
+        try (InputStream zipIn = java.nio.file.Files.newInputStream(zip.toPath())) {
+            zipIn.transferTo(multipart);
+        }
+        multipart.write(suffix);
+
+        HttpResponse<byte[]> upload = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/service/.json/?cmd=upload"))
+                .timeout(Duration.ofMinutes(5))
+                .header("Authorization", basicAuthHeader)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipart.toByteArray()))
+                .build());
+        ensureOk(upload, "Upload package " + zip.getName());
+        ensurePackmgrSuccess(upload.body(), "Upload package " + zip.getName());
+
+        String packagePath = "/etc/packages/" + GENERATED_PACKAGE_GROUP + "/" + zip.getName();
+
+        HttpResponse<byte[]> install = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/service/.json"
+                                + packagePath + "?cmd=install"))
+                .timeout(Duration.ofMinutes(5))
+                .header("Authorization", basicAuthHeader)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build());
+        ensureOk(install, "Install package " + packagePath);
+        ensurePackmgrSuccess(install.body(), "Install package " + packagePath);
+
+        JsonNode installResult = readPackmgrJson(install.body(), "Install package " + packagePath);
+        return installResult.path("msg").asText("Package installed");
+    }
+
+    private static JsonNode readPackmgrJson(byte[] body, String action) {
+        JsonNode result;
+        try {
+            result = MAPPER.readTree(body);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(action + " returned an invalid response");
+        }
+        if (result == null || !result.isObject()) {
+            throw new IllegalArgumentException(action + " returned an invalid response");
+        }
+        return result;
     }
 
     private void createPackage(String packageName) throws IOException, InterruptedException {
