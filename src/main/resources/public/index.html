@@ -253,11 +253,18 @@
         <div id="adaptReview" class="adapt-review" hidden>
           <div class="adapt-nav">
             <button type="button" id="adaptPrev" class="btn ghost">Previous</button>
-            <span id="adaptIndex" class="adapt-index"></span>
+            <label class="adapt-jump">Page
+              <input id="adaptPageInput" type="number" min="1" value="1" />
+              <span id="adaptPageTotal" class="adapt-index"></span>
+            </label>
             <button type="button" id="adaptNext" class="btn ghost">Next</button>
+            <select id="adaptFileSelect" class="adapt-file-select" aria-label="Jump to source file"></select>
             <a id="adaptDownload" class="btn ghost" href="#">Download adapted</a>
             <label class="adapt-approve"><input type="checkbox" id="adaptApprove" /> Approve for articles</label>
+            <button type="button" id="adaptApproveAll" class="btn">Approve all</button>
+            <button type="button" id="adaptClearApprovals" class="btn ghost">Clear approvals</button>
           </div>
+          <p id="adaptIndex" class="adapt-index"></p>
           <div class="adapt-columns">
             <div class="adapt-col">
               <h3>Source</h3>
@@ -268,17 +275,24 @@
               <div id="adaptMappedSlots" class="preview-blocks"></div>
             </div>
           </div>
-          <h3>Per-slot mapping</h3>
+          <h3>Slot choices (not approval)</h3>
+          <p class="help-block">
+            These controls do not approve files. They choose which source block fills each
+            template marker. "Use these slot choices for every file" re-adapts every file in this
+            job with the same choices (each file keeps its own text). "Save mapping" stores the
+            choices for reuse in the next batch.
+          </p>
           <p id="adaptRecipeHint" class="muted"></p>
           <div id="adaptSlotStrip" class="adapt-slot-strip"></div>
           <div class="adapt-teach">
-            <button type="button" id="adaptApplyRest" class="btn">Apply this mapping to remaining</button>
+            <button type="button" id="adaptApplyRest" class="btn">Use these slot choices for every file</button>
             <label>Save mapping as
               <input id="adaptSaveId" type="text" placeholder="usb-to-my-template" />
             </label>
             <button type="button" id="adaptSaveMapping" class="btn">Save mapping</button>
           </div>
           <p id="adaptBindStatus" class="status"></p>
+          <p id="adaptApprovedCount" class="status"></p>
           <button type="button" id="adaptSendArticles" class="btn primary">Send approved to articles</button>
           <p id="adaptSendStatus" class="status"></p>
         </div>

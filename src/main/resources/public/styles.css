@@ -1130,6 +1130,23 @@ textarea:focus-visible,
   font-size: 0.875rem;
 }
 
+.adapt-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.adapt-jump input {
+  width: 4.5rem;
+}
+
+.adapt-file-select {
+  max-width: 18rem;
+  font-size: 0.8125rem;
+}
+
 .adapt-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

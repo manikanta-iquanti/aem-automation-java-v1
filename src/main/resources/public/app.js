@@ -918,8 +918,15 @@
       return;
     }
     panel.hidden = false;
+    const total = state.adapt.reviews.length;
     $("adaptIndex").textContent =
-      `${state.adapt.index + 1} / ${state.adapt.reviews.length}: ${review.sourceFile}`;
+      `${state.adapt.index + 1} / ${total}: ${review.sourceFile}`;
+    const pageInput = $("adaptPageInput");
+    pageInput.max = String(total);
+    pageInput.value = String(state.adapt.index + 1);
+    $("adaptPageTotal").textContent = `of ${total}`;
+    renderAdaptFileSelect();
+    renderAdaptApprovedCount();
     $("adaptSourcePlain").textContent = review.sourcePlainText || "(empty)";
 
     const mapped = $("adaptMappedSlots");
@@ -988,6 +995,41 @@
     $("adaptNext").disabled = state.adapt.index >= state.adapt.reviews.length - 1;
   }
 
+  function renderAdaptFileSelect() {
+    const select = $("adaptFileSelect");
+    const reviews = state.adapt.reviews;
+    if (select.options.length !== reviews.length) {
+      select.innerHTML = "";
+      reviews.forEach((r, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        select.appendChild(opt);
+      });
+    }
+    reviews.forEach((r, i) => {
+      const mark = state.adapt.approved[r.adaptedFile] ? "\u2713 " : "";
+      select.options[i].textContent = `${mark}${i + 1}. ${r.sourceFile}`;
+    });
+    select.value = String(state.adapt.index);
+  }
+
+  function renderAdaptApprovedCount() {
+    const total = state.adapt.reviews.length;
+    const approved = state.adapt.reviews.filter((r) => state.adapt.approved[r.adaptedFile]).length;
+    $("adaptApprovedCount").textContent = `${approved} of ${total} approved`;
+  }
+
+  function goToAdaptReview(index) {
+    const total = state.adapt.reviews.length;
+    if (!total) return;
+    if (Number.isNaN(index) || index < 0 || index >= total) {
+      renderAdaptReview();
+      return;
+    }
+    state.adapt.index = index;
+    renderAdaptReview();
+  }
+
   function collectAdaptBindings() {
     const selects = document.querySelectorAll("#adaptSlotStrip .adapt-unit-select");
     const bindings = [];
@@ -1052,7 +1094,8 @@
         body: JSON.stringify({ jobId: state.adapt.jobId, bindings }),
       });
       state.adapt.reviews = result.reviews || [];
-      $("adaptBindStatus").textContent = "Applied bindings to all articles in this job.";
+      $("adaptBindStatus").textContent =
+        `Re-adapted all ${state.adapt.reviews.length} file(s) with these slot choices. Approvals are unchanged.`;
       renderAdaptReview();
     } catch (e) {
       $("adaptBindStatus").textContent = e.message;
@@ -1105,6 +1148,18 @@
       renderAdaptReview();
     }
   });
+  $("adaptPageInput").addEventListener("change", () => {
+    goToAdaptReview(parseInt($("adaptPageInput").value, 10) - 1);
+  });
+  $("adaptPageInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      goToAdaptReview(parseInt($("adaptPageInput").value, 10) - 1);
+    }
+  });
+  $("adaptFileSelect").addEventListener("change", () => {
+    goToAdaptReview(parseInt($("adaptFileSelect").value, 10));
+  });
   $("adaptApprove").addEventListener("change", () => {
     const review = currentAdaptReview();
     if (!review) return;
@@ -1113,6 +1168,18 @@
     } else {
       delete state.adapt.approved[review.adaptedFile];
     }
+    renderAdaptFileSelect();
+    renderAdaptApprovedCount();
+  });
+  $("adaptApproveAll").addEventListener("click", () => {
+    state.adapt.reviews.forEach((r) => {
+      state.adapt.approved[r.adaptedFile] = true;
+    });
+    renderAdaptReview();
+  });
+  $("adaptClearApprovals").addEventListener("click", () => {
+    state.adapt.approved = {};
+    renderAdaptReview();
   });
 
   $("adaptSendArticles").addEventListener("click", async () => {
