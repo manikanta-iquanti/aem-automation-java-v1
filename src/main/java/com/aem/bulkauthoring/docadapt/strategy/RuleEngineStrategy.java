@@ -4,6 +4,7 @@ import com.aem.bulkauthoring.docadapt.mapping.ExtractRule;
 import com.aem.bulkauthoring.docadapt.mapping.SlotRule;
 import com.aem.bulkauthoring.docadapt.mapping.SourceMapping;
 import com.aem.bulkauthoring.docadapt.model.DocBlock;
+import com.aem.bulkauthoring.docadapt.model.FormattedText;
 import com.aem.bulkauthoring.docadapt.model.NormalizedDocument;
 import com.aem.bulkauthoring.docadapt.model.ParagraphBlock;
 import com.aem.bulkauthoring.docadapt.model.TableBlock;
@@ -168,7 +169,7 @@ public final class RuleEngineStrategy implements AdaptStrategy {
     }
 
     private static String toHtml(String tag, TableCell cell) {
-        List<String> paras = cell.getParagraphs();
+        List<FormattedText> paras = cell.getFormattedParagraphs();
         if (paras.isEmpty()) {
             return "";
         }
@@ -176,25 +177,38 @@ public final class RuleEngineStrategy implements AdaptStrategy {
         if ("ul".equals(t) || "ol".equals(t)) {
             StringBuilder sb = new StringBuilder();
             sb.append('<').append(t).append('>');
-            for (String item : paras) {
-                sb.append("<li>").append(escapeXml(item.trim())).append("</li>");
+            for (FormattedText item : paras) {
+                FormattedText trimmed = item.trim();
+                if (trimmed.isBlank()) {
+                    continue;
+                }
+                sb.append("<li>").append(trimmed.toHtml()).append("</li>");
             }
             sb.append("</").append(t).append('>');
             return sb.toString();
         }
         if ("p".equals(t)) {
             StringBuilder sb = new StringBuilder();
-            for (String para : paras) {
+            for (FormattedText para : paras) {
+                FormattedText trimmed = para.trim();
+                if (trimmed.isBlank()) {
+                    continue;
+                }
                 if (sb.length() > 0) {
                     sb.append('\n');
                 }
-                sb.append("<p>").append(escapeXml(para.trim())).append("</p>");
+                sb.append("<p>").append(trimmed.toHtml()).append("</p>");
             }
             return sb.toString();
         }
         // h1/h2/... or any other single wrapper: join paragraphs with space
-        String joined = String.join(" ", paras).trim();
-        return "<" + t + ">" + escapeXml(joined) + "</" + t + ">";
+        FormattedText joined = cell.joinedFormatted();
+        if (joined.isBlank()) {
+            return "";
+        }
+        // joinedFormatted uses newlines; for heading wrappers use spaces
+        String html = joined.toHtml().replace("\n", " ").trim();
+        return "<" + t + ">" + html + "</" + t + ">";
     }
 
     private ExtractedSlot headingBody(NormalizedDocument doc, String path, ExtractRule rule) {

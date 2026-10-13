@@ -4,27 +4,36 @@ import com.aem.bulkauthoring.docadapt.content.DocTexts;
 
 public final class ParagraphBlock implements DocBlock {
 
-    private final String text;
+    private final FormattedText formatted;
     private final String style;
     private final int headingLevel;
     private final boolean listItem;
     private final boolean orderedList;
 
     public ParagraphBlock(String text, String style) {
-        this(text, style, DocTexts.headingLevelFromStyle(style), false, false);
+        this(FormattedText.plain(text), style, DocTexts.headingLevelFromStyle(style), false, false);
     }
 
     public ParagraphBlock(String text, String style, int headingLevel,
                           boolean listItem, boolean orderedList) {
-        this.text = text == null ? "" : text;
+        this(FormattedText.plain(text), style, headingLevel, listItem, orderedList);
+    }
+
+    public ParagraphBlock(FormattedText formatted, String style, int headingLevel,
+                          boolean listItem, boolean orderedList) {
+        this.formatted = formatted == null ? FormattedText.empty() : formatted;
         this.style = style == null ? "" : style;
         this.headingLevel = headingLevel;
         this.listItem = listItem;
         this.orderedList = orderedList;
     }
 
+    public FormattedText getFormatted() {
+        return formatted;
+    }
+
     public String getText() {
-        return text;
+        return formatted.plainText();
     }
 
     public String getStyle() {
@@ -56,6 +65,6 @@ public final class ParagraphBlock implements DocBlock {
 
     @Override
     public String toPlainText() {
-        return text;
+        return formatted.plainText();
     }
 }

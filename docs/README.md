@@ -41,5 +41,6 @@ Guides for the AEM bulk authoring engine.
 | Doc | Description |
 |-----|-------------|
 | [Plan: UI Blueprint Studio](plans/ui-blueprint-studio.md) | Design notes for Studio (implemented — see Phase 4 guide) |
+| [Plan: Preserve DOCX hyperlinks](plans/preserve-docx-hyperlinks.md) | Keep external Word links as HTML anchors when adapting (implemented) |
 
 Back to the [project README](../README.md).
