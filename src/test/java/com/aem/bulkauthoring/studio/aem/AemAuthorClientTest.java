@@ -114,6 +114,38 @@ class AemAuthorClientTest {
     }
 
     @Test
+    void repeatedInstallReusesTheSameForcedPackagePath() throws Exception {
+        File zip = tempDir.resolve("bulk-articles.zip").toFile();
+        Files.write(zip.toPath(), new byte[]{'P', 'K', 3, 4});
+        List<String> requests = new ArrayList<>();
+        List<byte[]> bodies = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            requests.add(exchange.getRequestURI().toString());
+            bodies.add(exchange.getRequestBody().readAllBytes());
+            respond(exchange, 200, "{\"success\":true,\"msg\":\"Package installed\"}");
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            client.uploadAndInstall(zip);
+            client.uploadAndInstall(zip);
+
+            assertEquals(List.of(
+                    "/crx/packmgr/service/.json/?cmd=upload",
+                    "/crx/packmgr/service/.json/etc/packages/my_packages/bulk-articles.zip?cmd=install",
+                    "/crx/packmgr/service/.json/?cmd=upload",
+                    "/crx/packmgr/service/.json/etc/packages/my_packages/bulk-articles.zip?cmd=install"),
+                    requests);
+            assertTrue(new String(bodies.get(0), StandardCharsets.ISO_8859_1)
+                    .contains("name=\"force\"\r\n\r\ntrue"));
+            assertTrue(new String(bodies.get(2), StandardCharsets.ISO_8859_1)
+                    .contains("name=\"force\"\r\n\r\ntrue"));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void reportsPackageManagerInstallFailure() throws Exception {
         File zip = tempDir.resolve("bulk.zip").toFile();
         Files.write(zip.toPath(), new byte[]{'P', 'K', 3, 4});
@@ -137,6 +169,151 @@ class AemAuthorClientTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    @Test
+    void uninstallsInstalledGeneratedPackageBeforeDeletingIt() throws Exception {
+        List<String> requests = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            if (requests.size() == 1) {
+                respond(exchange, 200,
+                        "{\"results\":[{\"group\":\"my_packages\","
+                                + "\"name\":\"bulk-content\",\"version\":\"\","
+                                + "\"lastUnpacked\":1720000000000}]}");
+            } else {
+                respond(exchange, 200, "{\"success\":true,\"msg\":\"Package operation succeeded\"}");
+            }
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            AemAuthorClient.PackageCleanupOutcome outcome =
+                    client.cleanupGeneratedPackage("bulk-content");
+
+            assertEquals(AemAuthorClient.PackageCleanupOutcome.UNINSTALLED_AND_DELETED, outcome);
+            assertEquals(List.of(
+                    "GET /crx/packmgr/list.jsp",
+                    "POST /crx/packmgr/service/.json/etc/packages/my_packages/bulk-content.zip?cmd=uninstall",
+                    "POST /crx/packmgr/service/.json/etc/packages/my_packages/bulk-content.zip?cmd=delete"),
+                    requests);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void deletesUploadedGeneratedPackageWithoutUninstallingIt() throws Exception {
+        List<String> requests = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            if (requests.size() == 1) {
+                respond(exchange, 200,
+                        "{\"results\":[{\"group\":\"my_packages\","
+                                + "\"name\":\"bulk-content\",\"version\":\"\","
+                                + "\"lastUnpacked\":0}]}");
+            } else {
+                respond(exchange, 200, "{\"success\":true,\"msg\":\"Package deleted\"}");
+            }
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            AemAuthorClient.PackageCleanupOutcome outcome =
+                    client.cleanupGeneratedPackage("bulk-content");
+
+            assertEquals(AemAuthorClient.PackageCleanupOutcome.DELETED_UPLOADED, outcome);
+            assertEquals(List.of(
+                    "GET /crx/packmgr/list.jsp",
+                    "POST /crx/packmgr/service/.json/etc/packages/my_packages/bulk-content.zip?cmd=delete"),
+                    requests);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void reportsAbsentGeneratedPackageWithoutChangingAem() throws Exception {
+        List<String> requests = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            respond(exchange, 200, "{\"results\":[]}");
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            AemAuthorClient.PackageCleanupOutcome outcome =
+                    client.cleanupGeneratedPackage("bulk-content");
+
+            assertEquals(AemAuthorClient.PackageCleanupOutcome.NOT_FOUND, outcome);
+            assertEquals(List.of("GET /crx/packmgr/list.jsp"), requests);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void doesNotDeleteWhenGeneratedPackageUninstallFails() throws Exception {
+        List<String> requests = new ArrayList<>();
+        HttpServer server = startServer(exchange -> {
+            requests.add(exchange.getRequestMethod() + " " + exchange.getRequestURI());
+            if (requests.size() == 1) {
+                respond(exchange, 200,
+                        "{\"results\":[{\"group\":\"my_packages\","
+                                + "\"name\":\"bulk-content\",\"lastUnpacked\":1720000000000}]}");
+            } else {
+                respond(exchange, 200,
+                        "{\"success\":false,\"msg\":\"Package uninstall failed\"}");
+            }
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            IllegalArgumentException error = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> client.cleanupGeneratedPackage("bulk-content"));
+
+            assertTrue(error.getMessage().contains("Package uninstall failed"));
+            assertEquals(2, requests.size());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void reportsGeneratedPackageDeleteFailure() throws Exception {
+        HttpServer server = startServer(exchange -> {
+            if (exchange.getRequestURI().toString().equals("/crx/packmgr/list.jsp")) {
+                respond(exchange, 200,
+                        "{\"results\":[{\"group\":\"my_packages\","
+                                + "\"name\":\"bulk-content\",\"lastUnpacked\":0}]}");
+            } else {
+                respond(exchange, 200,
+                        "{\"success\":false,\"msg\":\"Package delete failed\"}");
+            }
+        });
+        try {
+            AemAuthorClient client = new AemAuthorClient(baseUrl(server), "admin", "admin");
+
+            IllegalArgumentException error = assertThrows(
+                    IllegalArgumentException.class,
+                    () -> client.cleanupGeneratedPackage("bulk-content"));
+
+            assertTrue(error.getMessage().contains("Package delete failed"));
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void rejectsUnsafeGeneratedPackageNameBeforeCallingAem() throws Exception {
+        AemAuthorClient client = new AemAuthorClient("http://localhost:1", "admin", "admin");
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> client.cleanupGeneratedPackage("../outside"));
+
+        assertTrue(error.getMessage().contains("Package name"));
     }
 
     private static HttpServer startServer(ExchangeHandler handler) throws IOException {

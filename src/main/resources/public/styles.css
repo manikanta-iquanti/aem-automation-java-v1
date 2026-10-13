@@ -830,6 +830,16 @@ textarea:focus-visible,
   transform: translateY(1px);
 }
 
+.btn.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn.danger:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--white);
+}
+
 .btn.ghost {
   background: transparent;
   border-color: var(--silver);
