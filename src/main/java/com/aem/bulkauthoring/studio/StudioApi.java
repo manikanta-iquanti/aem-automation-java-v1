@@ -271,6 +271,52 @@ public final class StudioApi {
             }
         });
 
+        app.post("/api/blueprints/{id}/cleanup-package", ctx -> {
+            String packageName;
+            try {
+                packageName = com.aem.bulkauthoring.blueprint.BlueprintProfileRegistry
+                        .get(ctx.pathParam("id"))
+                        .packageConfig()
+                        .getPackageName();
+            } catch (IllegalArgumentException e) {
+                ctx.status(404).json(error(e.getMessage()));
+                return;
+            }
+
+            try {
+                StudioSettings settings = StudioSettings.load();
+                AemAuthorClient aem = new AemAuthorClient(
+                        settings.getAemBaseUrl(),
+                        settings.getAemUsername(),
+                        settings.getAemPassword());
+                AemAuthorClient.PackageCleanupOutcome outcome =
+                        aem.cleanupGeneratedPackage(packageName);
+                ObjectNode result = mapper.createObjectNode();
+                result.put("packagePath",
+                        "/etc/packages/my_packages/" + packageName + ".zip");
+                result.put("outcome", outcome.name().toLowerCase());
+                switch (outcome) {
+                    case UNINSTALLED_AND_DELETED:
+                        result.put("message", "Package uninstalled and deleted from AEM.");
+                        break;
+                    case DELETED_UPLOADED:
+                        result.put("message",
+                                "Package was not installed; its archive was deleted from AEM.");
+                        break;
+                    case NOT_FOUND:
+                    default:
+                        result.put("message", "Package not found in AEM Package Manager.");
+                        break;
+                }
+                ctx.json(result);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                ctx.status(500).json(error("Interrupted while cleaning up the AEM package"));
+            } catch (IOException | IllegalArgumentException e) {
+                ctx.status(502).json(error("AEM package cleanup failed: " + e.getMessage()));
+            }
+        });
+
         app.delete("/api/blueprints/{id}", ctx -> {
             try {
                 studio.deleteBlueprint(ctx.pathParam("id"));

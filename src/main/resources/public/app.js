@@ -1,6 +1,8 @@
 (() => {
   const state = {
     selectedId: null,
+    packageName: null,
+    cleanupInProgress: false,
     readiness: null,
     settings: {
       defaultPackageName: "bulk-content",
@@ -220,6 +222,7 @@
 
   function clearEditor() {
     state.selectedId = null;
+    state.packageName = null;
     document.querySelectorAll("#blueprintList li").forEach((li) => {
       li.classList.remove("selected");
     });
@@ -240,6 +243,7 @@
     $("picker").classList.add("muted");
     $("picker").textContent = "Select a blueprint to load components.";
     $("saveFields").disabled = true;
+    $("cleanupPackage").disabled = true;
     $("downloadPackage").hidden = true;
     $("bpFooterStatus").textContent = "";
     $("buildStatus").textContent = "";
@@ -304,6 +308,7 @@
   }
 
   function fillDerived(pkg) {
+    state.packageName = pkg.packageName || null;
     const box = $("derivedBox");
     box.classList.remove("muted");
     const rows = [
@@ -727,6 +732,7 @@
       ? ""
       : "Missing: " + r.buildPackage.missing.join(", ");
     $("runBuild").disabled = !r.buildPackage.ready;
+    $("cleanupPackage").disabled = !state.selectedId || state.cleanupInProgress;
     renderArticleLists(r.buildPackage.articles || []);
   }
 
@@ -826,6 +832,33 @@
         link.href = `/api/blueprints/${state.selectedId}/download/package`;
       }
       await refreshReadiness();
+    }
+  });
+
+  $("cleanupPackage").addEventListener("click", async () => {
+    if (!state.selectedId || state.cleanupInProgress) return;
+    const packageName = state.packageName || $("packageName").value.trim();
+    const packagePath = `/etc/packages/my_packages/${packageName}.zip`;
+    const confirmed = confirm(
+      `Remove ${packagePath} from AEM Package Manager?\n\n`
+      + "If it is installed, AEM will uninstall it before deleting the package archive."
+    );
+    if (!confirmed) return;
+
+    state.cleanupInProgress = true;
+    $("cleanupPackage").disabled = true;
+    $("buildStatus").textContent = "Checking package status in AEM…";
+    try {
+      const result = await api(
+        `/api/blueprints/${state.selectedId}/cleanup-package`,
+        { method: "POST" }
+      );
+      $("buildStatus").textContent = result.message;
+    } catch (e) {
+      $("buildStatus").textContent = e.message;
+    } finally {
+      state.cleanupInProgress = false;
+      $("cleanupPackage").disabled = !state.selectedId;
     }
   });
 

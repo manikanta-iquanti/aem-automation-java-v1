@@ -31,6 +31,18 @@ public final class AemAuthorClient {
     /** Must match the group written by VaultMetadataWriter for generated packages. */
     private static final String GENERATED_PACKAGE_GROUP = "my_packages";
 
+    public enum PackageCleanupOutcome {
+        NOT_FOUND,
+        DELETED_UPLOADED,
+        UNINSTALLED_AND_DELETED
+    }
+
+    private enum PackageStatus {
+        ABSENT,
+        UPLOADED,
+        INSTALLED
+    }
+
     private final String baseUrl;
     private final String basicAuthHeader;
     private final HttpClient http;
@@ -229,6 +241,68 @@ public final class AemAuthorClient {
         return installResult.path("msg").asText("Package installed");
     }
 
+    /**
+     * Removes the generated package with the configured name from Package Manager.
+     * Installed packages are uninstalled before their package record is deleted.
+     */
+    public PackageCleanupOutcome cleanupGeneratedPackage(String packageName)
+            throws IOException, InterruptedException {
+        validatePackageName(packageName);
+        PackageStatus status = generatedPackageStatus(packageName);
+        if (status == PackageStatus.ABSENT) {
+            return PackageCleanupOutcome.NOT_FOUND;
+        }
+
+        String packagePath = generatedPackagePath(packageName);
+        if (status == PackageStatus.INSTALLED) {
+            runPackageCommand(packagePath, "uninstall", "Uninstall package ");
+            runPackageCommand(packagePath, "delete", "Delete package ");
+            return PackageCleanupOutcome.UNINSTALLED_AND_DELETED;
+        }
+
+        runPackageCommand(packagePath, "delete", "Delete package ");
+        return PackageCleanupOutcome.DELETED_UPLOADED;
+    }
+
+    private PackageStatus generatedPackageStatus(String packageName)
+            throws IOException, InterruptedException {
+        HttpResponse<byte[]> response = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/list.jsp"))
+                .timeout(Duration.ofSeconds(60))
+                .GET()
+                .header("Authorization", basicAuthHeader)
+                .header("Accept", "application/json")
+                .build());
+        ensureOk(response, "List packages");
+        JsonNode result = readPackmgrJson(response.body(), "List packages");
+        JsonNode packages = result.get("results");
+        if (packages == null || !packages.isArray()) {
+            throw new IllegalArgumentException("List packages returned an invalid response");
+        }
+
+        for (JsonNode pkg : packages) {
+            if (GENERATED_PACKAGE_GROUP.equals(pkg.path("group").asText())
+                    && packageName.equals(pkg.path("name").asText())) {
+                return pkg.path("lastUnpacked").asLong(0) > 0
+                        ? PackageStatus.INSTALLED
+                        : PackageStatus.UPLOADED;
+            }
+        }
+        return PackageStatus.ABSENT;
+    }
+
+    private static void validatePackageName(String packageName) {
+        if (packageName == null
+                || !packageName.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
+            throw new IllegalArgumentException(
+                    "Package name may contain only letters, numbers, dots, underscores, and hyphens");
+        }
+    }
+
+    private static String generatedPackagePath(String packageName) {
+        return "/etc/packages/" + GENERATED_PACKAGE_GROUP + "/" + packageName + ".zip";
+    }
+
     private static JsonNode readPackmgrJson(byte[] body, String action) {
         JsonNode result;
         try {
@@ -310,12 +384,19 @@ public final class AemAuthorClient {
     }
 
     private void deletePackage(String packagePath) throws IOException, InterruptedException {
-        String url = baseUrl + "/crx/packmgr/service/.json" + packagePath + "?cmd=delete";
-        send(HttpRequest.newBuilder(URI.create(url))
+        runPackageCommand(packagePath, "delete", "Delete package ");
+    }
+
+    private void runPackageCommand(String packagePath, String command, String action)
+            throws IOException, InterruptedException {
+        String url = baseUrl + "/crx/packmgr/service/.json" + packagePath + "?cmd=" + command;
+        HttpResponse<byte[]> response = send(HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
                 .header("Authorization", basicAuthHeader)
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build());
+        ensureOk(response, action + packagePath);
+        ensurePackmgrSuccess(response.body(), action + packagePath);
     }
 
     private HttpResponse<byte[]> send(HttpRequest request) throws IOException, InterruptedException {
