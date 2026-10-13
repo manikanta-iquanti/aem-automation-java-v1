@@ -4,6 +4,7 @@ import com.aem.bulkauthoring.docadapt.content.ContentDocument;
 import com.aem.bulkauthoring.docadapt.content.ContentUnit;
 import com.aem.bulkauthoring.docadapt.content.DocTexts;
 import com.aem.bulkauthoring.docadapt.model.DocBlock;
+import com.aem.bulkauthoring.docadapt.model.FormattedText;
 import com.aem.bulkauthoring.docadapt.model.NormalizedDocument;
 import com.aem.bulkauthoring.docadapt.model.ParagraphBlock;
 import com.aem.bulkauthoring.docadapt.model.TableBlock;
@@ -50,13 +51,14 @@ public final class WordOutlineRecipe implements SourceRecipe {
     public ContentDocument extract(NormalizedDocument doc) {
         String title = null;
         List<ContentUnit> units = new ArrayList<>();
-        List<String> listBuf = new ArrayList<>();
+        List<FormattedText> listBuf = new ArrayList<>();
         boolean listOrdered = false;
 
         for (DocBlock block : doc.getBlocks()) {
             if (block instanceof ParagraphBlock) {
                 ParagraphBlock p = (ParagraphBlock) block;
-                String text = p.getText().trim();
+                FormattedText formatted = p.getFormatted().trim();
+                String text = formatted.plainText();
                 if (text.isEmpty()) {
                     continue;
                 }
@@ -66,13 +68,15 @@ public final class WordOutlineRecipe implements SourceRecipe {
                     if (title == null && headingLevel == 1) {
                         title = text;
                     } else {
-                        units.add(ContentUnit.heading(headingLevel, text));
+                        units.add(ContentUnit.heading(headingLevel, formatted));
                     }
                     continue;
                 }
                 BulletPrefix bullet = bulletPrefix(text);
                 if (p.isListItem() || bullet != null) {
-                    String item = bullet == null ? text : bullet.text;
+                    FormattedText item = bullet == null
+                            ? formatted
+                            : stripBulletPrefix(formatted, text, bullet);
                     boolean ordered = p.isListItem() ? p.isOrderedList() : bullet.ordered;
                     if (!listBuf.isEmpty() && ordered != listOrdered) {
                         flushList(units, listBuf, listOrdered);
@@ -85,7 +89,7 @@ public final class WordOutlineRecipe implements SourceRecipe {
                 if (title == null && text.length() >= 3) {
                     title = text;
                 } else {
-                    units.add(ContentUnit.paragraph(text));
+                    units.add(ContentUnit.paragraph(formatted));
                 }
             } else if (block instanceof TableBlock) {
                 flushList(units, listBuf, listOrdered);
@@ -120,22 +124,40 @@ public final class WordOutlineRecipe implements SourceRecipe {
         return 0;
     }
 
-    private static void flushList(List<ContentUnit> units, List<String> buf, boolean ordered) {
+    private static void flushList(List<ContentUnit> units,
+                                  List<FormattedText> buf,
+                                  boolean ordered) {
         if (buf.isEmpty()) {
             return;
         }
-        units.add(ContentUnit.list(ordered, new ArrayList<>(buf)));
+        units.add(ContentUnit.listFormatted(ordered, new ArrayList<>(buf)));
         buf.clear();
     }
 
     private static BulletPrefix bulletPrefix(String text) {
         if (text.startsWith("- ") || text.startsWith("* ") || text.startsWith("• ")) {
-            return new BulletPrefix(false, text.substring(2).trim());
+            return new BulletPrefix(false, 2, text.substring(2).trim());
         }
         if (text.matches("^\\d+[.)]\\s+.+")) {
-            return new BulletPrefix(true, text.replaceFirst("^\\d+[.)]\\s+", "").trim());
+            String stripped = text.replaceFirst("^\\d+[.)]\\s+", "");
+            int prefixLen = text.length() - stripped.length();
+            return new BulletPrefix(true, prefixLen, stripped.trim());
         }
         return null;
+    }
+
+    private static FormattedText stripBulletPrefix(FormattedText formatted,
+                                                   String plain,
+                                                   BulletPrefix bullet) {
+        int leading = 0;
+        while (leading < plain.length() && Character.isWhitespace(plain.charAt(leading))) {
+            leading++;
+        }
+        int from = leading + bullet.prefixLength;
+        while (from < plain.length() && Character.isWhitespace(plain.charAt(from))) {
+            from++;
+        }
+        return formatted.slice(from, plain.length()).trim();
     }
 
     private static String firstLine(String text) {
@@ -155,10 +177,12 @@ public final class WordOutlineRecipe implements SourceRecipe {
 
     private static final class BulletPrefix {
         final boolean ordered;
+        final int prefixLength;
         final String text;
 
-        BulletPrefix(boolean ordered, String text) {
+        BulletPrefix(boolean ordered, int prefixLength, String text) {
             this.ordered = ordered;
+            this.prefixLength = prefixLength;
             this.text = text;
         }
     }

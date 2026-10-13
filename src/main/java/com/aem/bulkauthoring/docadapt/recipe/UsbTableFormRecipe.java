@@ -4,6 +4,7 @@ import com.aem.bulkauthoring.docadapt.content.ContentDocument;
 import com.aem.bulkauthoring.docadapt.content.ContentUnit;
 import com.aem.bulkauthoring.docadapt.content.DocTexts;
 import com.aem.bulkauthoring.docadapt.model.DocBlock;
+import com.aem.bulkauthoring.docadapt.model.FormattedText;
 import com.aem.bulkauthoring.docadapt.model.NormalizedDocument;
 import com.aem.bulkauthoring.docadapt.model.ParagraphBlock;
 import com.aem.bulkauthoring.docadapt.model.TableBlock;
@@ -140,25 +141,27 @@ public final class UsbTableFormRecipe implements SourceRecipe {
         String el = element.toLowerCase(Locale.ROOT);
         Matcher heading = HEADING_ELEMENT.matcher(element.trim());
         if (heading.find()) {
-            return ContentUnit.heading(Integer.parseInt(heading.group(1)), content.joinedText());
+            return ContentUnit.heading(
+                    Integer.parseInt(heading.group(1)), content.joinedFormatted());
         }
         if (el.contains("unordered") || el.equals("ul") || el.contains("bullet")) {
-            return ContentUnit.list(false, nonEmpty(content.getParagraphs()));
+            return ContentUnit.listFormatted(false, nonEmptyFormatted(content));
         }
         if (el.contains("ordered") || el.equals("ol") || el.contains("numbered")) {
-            return ContentUnit.list(true, nonEmpty(content.getParagraphs()));
+            return ContentUnit.listFormatted(true, nonEmptyFormatted(content));
         }
         if (el.contains("p-text") || el.equals("p") || el.contains("paragraph")) {
-            return ContentUnit.paragraph(content.joinedText());
+            return ContentUnit.paragraph(content.joinedFormatted());
         }
         return null;
     }
 
-    private static List<String> nonEmpty(List<String> paras) {
-        List<String> out = new ArrayList<>();
-        for (String p : paras) {
-            if (p != null && !p.isBlank()) {
-                out.add(p.trim());
+    private static List<FormattedText> nonEmptyFormatted(TableCell content) {
+        List<FormattedText> out = new ArrayList<>();
+        for (FormattedText p : content.getFormattedParagraphs()) {
+            FormattedText trimmed = p.trim();
+            if (!trimmed.isBlank()) {
+                out.add(trimmed);
             }
         }
         return out;
