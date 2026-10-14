@@ -18,16 +18,58 @@ import java.util.Map;
 /** Binds a canonical ContentDocument onto discovered template slots. */
 public final class BindingEngine {
 
+    public static final String SECTION_SEPARATOR = "#";
+
     public BoundSlots bind(ContentDocument content,
                            SlotCatalog catalog,
                            List<SlotBinding> overrides) {
         if (overrides != null && !overrides.isEmpty()) {
             return applyOverrides(content, catalog, overrides);
         }
+        SlotGroup sectionTarget = firstRichGroup(catalog);
+        if (content.sections().size() > 1 && sectionTarget != null) {
+            return sections(content, catalog, sectionTarget);
+        }
         if (catalog.isDumpShape()) {
             return dump(content, catalog);
         }
         return sequential(content, catalog);
+    }
+
+    /** Marker path for 1-based section {@code n}: base path for 1, {@code path#n} after. */
+    public static String sectionPath(String basePath, int n) {
+        return n <= 1 ? basePath : basePath + SECTION_SEPARATOR + n;
+    }
+
+    private BoundSlots sections(ContentDocument content, SlotCatalog catalog, SlotGroup target) {
+        Map<String, String> values = emptyValues(catalog);
+        Map<String, String> units = new LinkedHashMap<>();
+        List<SlotBinding> bindings = new ArrayList<>();
+
+        for (SlotGroup g : catalog.getGroups()) {
+            if (g.getRole() == SlotGroup.Role.PAGE_TITLE && g.getContentPath() != null) {
+                put(values, units, bindings, g.getContentPath(), "title", content.getTitle());
+            }
+        }
+
+        List<String> sections = content.sections();
+        String base = target.getContentPath();
+        for (int i = 0; i < sections.size(); i++) {
+            int n = i + 1;
+            put(values, units, bindings, sectionPath(base, n), "section:" + n, sections.get(i));
+        }
+        fillSatellites(target, null, values);
+        return new BoundSlots(values, units, bindings, "sections");
+    }
+
+    private static SlotGroup firstRichGroup(SlotCatalog catalog) {
+        for (SlotGroup g : catalog.getGroups()) {
+            if ((g.getRole() == SlotGroup.Role.RICH_TEXT || g.getRole() == SlotGroup.Role.CALLOUT)
+                    && g.getContentPath() != null) {
+                return g;
+            }
+        }
+        return null;
     }
 
     private BoundSlots dump(ContentDocument content, SlotCatalog catalog) {
@@ -240,6 +282,13 @@ public final class BindingEngine {
         }
         if ("blocksHtml".equals(unitId)) {
             return content.blocksHtml();
+        }
+        if (unitId.startsWith("section:")) {
+            try {
+                return content.sectionHtml(Integer.parseInt(unitId.substring("section:".length())));
+            } catch (NumberFormatException e) {
+                return "";
+            }
         }
         ContentUnit block = content.blockAt(blockIndex(unitId));
         if (block == null) {

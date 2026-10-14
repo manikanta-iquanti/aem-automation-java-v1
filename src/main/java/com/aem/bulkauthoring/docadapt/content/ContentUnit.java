@@ -21,18 +21,38 @@ public final class ContentUnit {
     private final int level;
     private final List<FormattedText> items;
     private final boolean ordered;
+    private final int section;
 
     private ContentUnit(Role role,
                         FormattedText text,
                         int level,
                         List<FormattedText> items,
                         boolean ordered) {
+        this(role, text, level, items, ordered, 0);
+    }
+
+    private ContentUnit(Role role,
+                        FormattedText text,
+                        int level,
+                        List<FormattedText> items,
+                        boolean ordered,
+                        int section) {
         this.role = role;
         this.text = text == null ? FormattedText.empty() : text;
         this.level = level;
         this.items = Collections.unmodifiableList(new ArrayList<>(
                 items == null ? List.of() : items));
         this.ordered = ordered;
+        this.section = Math.max(0, section);
+    }
+
+    /** Same unit tagged with a 1-based source section; 0 means the source has no sections. */
+    public ContentUnit inSection(int section) {
+        return new ContentUnit(role, text, level, items, ordered, section);
+    }
+
+    public int getSection() {
+        return section;
     }
 
     public static ContentUnit heading(int level, String text) {

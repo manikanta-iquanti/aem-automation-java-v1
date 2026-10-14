@@ -87,6 +87,7 @@ public final class UsbTableFormRecipe implements SourceRecipe {
         int to = stop < 0 ? blocks.size() : stop;
 
         List<ContentUnit> out = new ArrayList<>();
+        int section = 0;
         for (int i = from; i < to; i++) {
             DocBlock block = blocks.get(i);
             if (!(block instanceof TableBlock)) {
@@ -96,7 +97,11 @@ public final class UsbTableFormRecipe implements SourceRecipe {
             if (!isElementHeaderTable(table)) {
                 continue;
             }
-            appendElementRows(table, out);
+            int before = out.size();
+            appendElementRows(table, out, section + 1);
+            if (out.size() > before) {
+                section++;
+            }
         }
         return out;
     }
@@ -122,7 +127,7 @@ public final class UsbTableFormRecipe implements SourceRecipe {
                 && DocTexts.containsIgnoreCase(header.get(1).joinedText(), "Content");
     }
 
-    private static void appendElementRows(TableBlock table, List<ContentUnit> out) {
+    private static void appendElementRows(TableBlock table, List<ContentUnit> out, int section) {
         for (int r = 1; r < table.getRows().size(); r++) {
             List<TableCell> row = table.getRows().get(r);
             if (row.size() < 2) {
@@ -132,7 +137,7 @@ public final class UsbTableFormRecipe implements SourceRecipe {
             TableCell content = row.get(1);
             ContentUnit unit = toUnit(element, content);
             if (unit != null) {
-                out.add(unit);
+                out.add(unit.inSection(section));
             }
         }
     }

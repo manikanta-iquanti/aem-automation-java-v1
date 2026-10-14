@@ -10,6 +10,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,17 @@ import java.util.Map;
  * {@link FieldFormat} from the blueprint profile.
  */
 public class BlueprintUpdater {
+
+    private static final String SECTION_SEPARATOR = "#";
+
+    private static final List<String> INSTANCE_PROPERTIES = List.of(
+            "jcr:uuid",
+            "jcr:created",
+            "jcr:createdBy",
+            "jcr:lastModified",
+            "jcr:lastModifiedBy",
+            "cq:lastModified",
+            "cq:lastModifiedBy");
 
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -44,8 +57,19 @@ public class BlueprintUpdater {
             Map<String, FieldFormat> formatMap =
                     formats == null ? Collections.emptyMap() : formats;
 
+            Map<String, List<String>> sectionCopies = new HashMap<>();
             for (Map.Entry<String, String> entry : valuesByPath.entrySet()) {
                 String path = entry.getKey();
+                int section = sectionNumber(path);
+                if (section > 1) {
+                    String basePath = path.substring(0, path.lastIndexOf(SECTION_SEPARATOR));
+                    FieldFormat format = formatMap.getOrDefault(basePath, FieldFormat.PLAIN);
+                    String target = sectionTarget(copy, basePath, section, sectionCopies);
+                    if (target != null) {
+                        applyPath(copy, target, entry.getValue(), format);
+                    }
+                    continue;
+                }
                 FieldFormat format = formatMap.getOrDefault(path, FieldFormat.PLAIN);
                 applyPath(copy, path, entry.getValue(), format);
             }
@@ -127,6 +151,103 @@ public class BlueprintUpdater {
             updateListItems(listNode, value);
         } else {
             current.put(last, transformValue(format, value));
+        }
+    }
+
+    /** 1-based section from a {@code path#n} marker; 1 when there is no numeric suffix. */
+    static int sectionNumber(String path) {
+        int hash = path.lastIndexOf(SECTION_SEPARATOR);
+        if (hash <= 0 || hash == path.length() - 1) {
+            return 1;
+        }
+        try {
+            return Integer.parseInt(path.substring(hash + 1));
+        } catch (NumberFormatException e) {
+            return 1;
+        }
+    }
+
+    /**
+     * Property path inside the clone of the base path's component for section {@code n}.
+     * Clones are inserted as siblings directly after the previous section's component.
+     */
+    private String sectionTarget(ObjectNode root,
+                                 String basePath,
+                                 int section,
+                                 Map<String, List<String>> sectionCopies) {
+        String[] segments = basePath.substring(1).split("/");
+        if (segments.length < 3) {
+            return null;
+        }
+        ObjectNode container = root;
+        for (int i = 0; i < segments.length - 2; i++) {
+            JsonNode child = container.get(segments[i]);
+            if (child == null || !child.isObject()) {
+                return null;
+            }
+            container = (ObjectNode) child;
+        }
+        String baseName = segments[segments.length - 2];
+        String property = segments[segments.length - 1];
+        JsonNode base = container.get(baseName);
+        if (base == null || !base.isObject()) {
+            return null;
+        }
+
+        String componentPath = basePath.substring(0, basePath.lastIndexOf('/'));
+        List<String> names = sectionCopies.computeIfAbsent(componentPath, k -> {
+            List<String> list = new ArrayList<>();
+            list.add(baseName);
+            return list;
+        });
+        while (names.size() < section) {
+            int n = names.size() + 1;
+            String name = freeName(container, baseName + "_" + n);
+            ObjectNode clone = ((ObjectNode) base).deepCopy();
+            stripInstanceProperties(clone);
+            insertAfter(container, names.get(names.size() - 1), name, clone);
+            names.add(name);
+        }
+        return componentPath.substring(0, componentPath.lastIndexOf('/') + 1)
+                + names.get(section - 1) + "/" + property;
+    }
+
+    private static String freeName(ObjectNode container, String candidate) {
+        if (!container.has(candidate)) {
+            return candidate;
+        }
+        int i = 1;
+        while (container.has(candidate + "_" + i)) {
+            i++;
+        }
+        return candidate + "_" + i;
+    }
+
+    private static void insertAfter(ObjectNode container, String afterKey, String key, JsonNode value) {
+        Map<String, JsonNode> ordered = new LinkedHashMap<>();
+        Iterator<Map.Entry<String, JsonNode>> fields = container.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            ordered.put(field.getKey(), field.getValue());
+            if (field.getKey().equals(afterKey)) {
+                ordered.put(key, value);
+            }
+        }
+        if (!ordered.containsKey(key)) {
+            ordered.put(key, value);
+        }
+        container.removeAll();
+        container.setAll(ordered);
+    }
+
+    private static void stripInstanceProperties(ObjectNode node) {
+        node.remove(INSTANCE_PROPERTIES);
+        Iterator<Map.Entry<String, JsonNode>> fields = node.fields();
+        while (fields.hasNext()) {
+            JsonNode child = fields.next().getValue();
+            if (child.isObject()) {
+                stripInstanceProperties((ObjectNode) child);
+            }
         }
     }
 

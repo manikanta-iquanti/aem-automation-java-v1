@@ -3,6 +3,8 @@ package com.aem.bulkauthoring.docadapt.content;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 /** Canonical extracted article: title + typed blocks. */
 public final class ContentDocument {
@@ -45,6 +47,38 @@ public final class ContentDocument {
         return sb.toString();
     }
 
+    /** HTML per source section in document order; empty when the source has no sections. */
+    public List<String> sections() {
+        Map<Integer, StringBuilder> bySection = new TreeMap<>();
+        for (ContentUnit block : blocks) {
+            if (block.getSection() <= 0) {
+                continue;
+            }
+            String html = block.toHtml();
+            if (html.isBlank()) {
+                continue;
+            }
+            StringBuilder sb = bySection.computeIfAbsent(block.getSection(), k -> new StringBuilder());
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(html);
+        }
+        List<String> out = new ArrayList<>();
+        for (StringBuilder sb : bySection.values()) {
+            out.add(sb.toString());
+        }
+        return out;
+    }
+
+    public String sectionHtml(int oneBased) {
+        List<String> all = sections();
+        if (oneBased < 1 || oneBased > all.size()) {
+            return "";
+        }
+        return all.get(oneBased - 1);
+    }
+
     public List<SelectableUnit> selectableUnits() {
         List<SelectableUnit> out = new ArrayList<>();
         out.add(new SelectableUnit("title", "Title: " + DocTexts.truncate(title, 60), title));
@@ -52,6 +86,13 @@ public final class ContentDocument {
                 "blocksHtml",
                 "All body (HTML)",
                 blocksHtml()));
+        List<String> sections = sections();
+        for (int i = 0; i < sections.size(); i++) {
+            out.add(new SelectableUnit(
+                    "section:" + (i + 1),
+                    "Section " + (i + 1) + " (HTML)",
+                    sections.get(i)));
+        }
         for (int i = 0; i < blocks.size(); i++) {
             ContentUnit block = blocks.get(i);
             out.add(new SelectableUnit("block:" + i, block.label(), block.toHtml()));
