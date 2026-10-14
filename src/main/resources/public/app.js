@@ -586,8 +586,9 @@
     const compCheck = document.createElement("input");
     compCheck.type = "checkbox";
     compCheck.className = "comp-check";
-    compCheck.checked = !!comp.selected;
-    compCheck.indeterminate = !!comp.partial && !comp.selected;
+    compCheck.title = "Include fields in the Word template";
+    compCheck.checked = !!comp.selected && !comp.excluded;
+    compCheck.indeterminate = !!comp.partial && !comp.selected && !comp.excluded;
     header.appendChild(compCheck);
 
     const titles = document.createElement("div");
@@ -597,13 +598,27 @@
       <span class="rt-chip" title="${esc(comp.resourceType)}">${esc(chip)}</span>
       <div class="rt">${esc(comp.path)}</div>`;
     header.appendChild(titles);
+
+    const excludeBtn = document.createElement("button");
+    excludeBtn.type = "button";
+    excludeBtn.className = "exclude-btn";
+    excludeBtn.textContent = "Exclude";
+    excludeBtn.title = "Remove this component from bulk-authored pages";
+    header.appendChild(excludeBtn);
     el.appendChild(header);
 
     (comp.properties || []).forEach((prop) => {
-      el.appendChild(renderProp(comp.resourceType, comp.path, prop));
+      const shown = Object.assign({}, prop, { selected: !!prop.selected && !comp.excluded });
+      el.appendChild(renderProp(comp.resourceType, comp.path, shown));
     });
 
+    excludeBtn.addEventListener("click", () => {
+      setExcluded(el, el.dataset.excluded !== "1");
+    });
+    setExcluded(el, !!comp.excluded);
+
     compCheck.addEventListener("change", () => {
+      if (el.dataset.excluded === "1") return;
       el.querySelectorAll(".prop-row input[type='checkbox']").forEach((cb) => {
         cb.checked = compCheck.checked;
       });
@@ -615,6 +630,28 @@
     });
 
     return el;
+  }
+
+  function setExcluded(el, excluded) {
+    el.dataset.excluded = excluded ? "1" : "0";
+    el.classList.toggle("is-excluded", excluded);
+    const excludeBtn = el.querySelector(".exclude-btn");
+    if (excludeBtn) {
+      excludeBtn.setAttribute("aria-pressed", excluded ? "true" : "false");
+      excludeBtn.textContent = excluded ? "Excluded" : "Exclude";
+    }
+    const compCheck = el.querySelector(".comp-check");
+    el.querySelectorAll(".prop-row input[type='checkbox'], .fmt-btn").forEach((control) => {
+      control.disabled = excluded;
+      if (excluded && control.type === "checkbox") control.checked = false;
+    });
+    if (compCheck) {
+      compCheck.disabled = excluded;
+      if (excluded) {
+        compCheck.checked = false;
+        compCheck.indeterminate = false;
+      }
+    }
   }
 
   function syncComponentCheck(el) {
@@ -649,6 +686,12 @@
     if (!state.selectedId) return;
     const fields = [];
     const pageFields = [];
+    const excluded = [];
+    $("picker").querySelectorAll(".component[data-path]").forEach((card) => {
+      if (card.dataset.excluded === "1" && card.dataset.path) {
+        excluded.push(card.dataset.path);
+      }
+    });
     $("picker").querySelectorAll(".prop-row").forEach((row) => {
       const checked = row.querySelector('input[type="checkbox"]').checked;
       if (!checked) return;
@@ -671,7 +714,7 @@
       await api(`/api/blueprints/${state.selectedId}/fields`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fields, pageFields }),
+        body: JSON.stringify({ fields, pageFields, excluded }),
       });
       await refreshList();
       await refreshReadiness();

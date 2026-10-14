@@ -25,8 +25,10 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -140,6 +142,7 @@ public class BlueprintStudioService {
 
         Map<String, FieldFormat> selectedByPath = new LinkedHashMap<>();
         Map<String, FieldFormat> selectedByType = new LinkedHashMap<>();
+        Set<String> excluded = new LinkedHashSet<>(profile.excludedPaths());
         for (Map<String, String> row : profile.selectedFieldsSnapshot()) {
             String property = row.get("property");
             FieldFormat format = FieldFormat.valueOf(row.get("format"));
@@ -185,6 +188,7 @@ public class BlueprintStudioService {
                 props.add(prop);
             }
             node.set("properties", props);
+            node.put("excluded", excluded.contains(normalizePath(component.getPath())));
             node.put("selected", selectedCount > 0
                     && selectedCount == component.getProperties().size());
             node.put("partial", selectedCount > 0
@@ -238,7 +242,17 @@ public class BlueprintStudioService {
             }
         }
 
-        profile.saveFields(fields, pageFields);
+        List<String> excluded = new ArrayList<>();
+        JsonNode excludedNode = body.get("excluded");
+        if (excludedNode != null && excludedNode.isArray()) {
+            for (JsonNode path : excludedNode) {
+                if (path != null && !path.isNull()) {
+                    excluded.add(path.asText());
+                }
+            }
+        }
+
+        profile.saveFields(fields, pageFields, excluded);
         BlueprintProfileRegistry.reload();
     }
 

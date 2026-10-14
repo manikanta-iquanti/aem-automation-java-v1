@@ -88,7 +88,7 @@ public class BulkAuthoringService {
             List<DocumentBlock> blocks = parser.parse(doc.getPath());
 
             File updatedJson = new File(pagesDir, pageName + ".json");
-            updater.update(blueprint, blocks, updatedJson, formats);
+            updater.update(blueprint, blocks, updatedJson, formats, profile.excludedPaths());
 
             try {
                 JsonNode pageRoot = mapper.readTree(updatedJson);

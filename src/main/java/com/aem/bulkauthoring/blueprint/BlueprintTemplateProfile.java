@@ -38,6 +38,14 @@ public interface BlueprintTemplateProfile {
     }
 
     /**
+     * Component paths removed from generated pages and omitted from the Word template.
+     * Unchecked fields are different: those components stay, with blueprint values.
+     */
+    default List<String> excludedPaths() {
+        return Collections.emptyList();
+    }
+
+    /**
      * FileVault scaffold and install paths for Phase 2 package generation.
      */
     BlueprintPackageConfig packageConfig();

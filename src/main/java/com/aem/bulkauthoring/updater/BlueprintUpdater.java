@@ -26,6 +26,14 @@ public class BlueprintUpdater {
                        List<DocumentBlock> blocks,
                        File outputFile,
                        Map<String, FieldFormat> formats) {
+        update(originalBlueprint, blocks, outputFile, formats, List.of());
+    }
+
+    public void update(File originalBlueprint,
+                       List<DocumentBlock> blocks,
+                       File outputFile,
+                       Map<String, FieldFormat> formats,
+                       List<String> excludedPaths) {
 
         try {
 
@@ -40,6 +48,12 @@ public class BlueprintUpdater {
                 String path = entry.getKey();
                 FieldFormat format = formatMap.getOrDefault(path, FieldFormat.PLAIN);
                 applyPath(copy, path, entry.getValue(), format);
+            }
+
+            if (excludedPaths != null) {
+                for (String excluded : excludedPaths) {
+                    removePath(copy, excluded);
+                }
             }
 
             if (outputFile.getParentFile() != null) {
@@ -114,6 +128,26 @@ public class BlueprintUpdater {
         } else {
             current.put(last, transformValue(format, value));
         }
+    }
+
+    private void removePath(ObjectNode root, String path) {
+        if (root == null || path == null || path.isBlank()) {
+            return;
+        }
+        String normalized = normalizePath(path);
+        String[] segments = normalized.substring(1).split("/");
+        if (segments.length == 0 || segments[0].isEmpty()) {
+            return;
+        }
+        ObjectNode current = root;
+        for (int i = 0; i < segments.length - 1; i++) {
+            JsonNode child = current.get(segments[i]);
+            if (child == null || !child.isObject()) {
+                return;
+            }
+            current = (ObjectNode) child;
+        }
+        current.remove(segments[segments.length - 1]);
     }
 
     private String transformValue(FieldFormat format, String value) {
