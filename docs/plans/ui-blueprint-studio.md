@@ -102,7 +102,7 @@ New package: `com.aem.bulkauthoring.studio`
 
 ```mermaid
 flowchart TB
-  ui[Browser UI localhost:8080]
+  ui[Browser UI localhost:8000]
   api[studio REST API]
   svc[BulkAuthoringService]
   profiles[input/profiles/*.json]
@@ -245,7 +245,7 @@ Run:
 mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.studio.StudioMain"
 ```
 
-Open `http://localhost:8080`.
+Open `http://localhost:8000`.
 
 ---
 

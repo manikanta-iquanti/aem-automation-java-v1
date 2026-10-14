@@ -1,6 +1,8 @@
 package com.aem.bulkauthoring.docadapt.extract;
 
+import com.aem.bulkauthoring.docadapt.content.DocTexts;
 import com.aem.bulkauthoring.docadapt.model.DocBlock;
+import com.aem.bulkauthoring.docadapt.model.FormattedText;
 import com.aem.bulkauthoring.docadapt.model.NormalizedDocument;
 import com.aem.bulkauthoring.docadapt.model.ParagraphBlock;
 import com.aem.bulkauthoring.docadapt.model.TableBlock;
@@ -28,12 +30,16 @@ public final class SourceDocumentNormalizer {
             for (IBodyElement element : document.getBodyElements()) {
                 if (element instanceof XWPFParagraph) {
                     XWPFParagraph p = (XWPFParagraph) element;
-                    String text = p.getText();
-                    if (text == null || text.isBlank()) {
+                    FormattedText formatted = ParagraphTextReader.read(p);
+                    if (formatted.isBlank()) {
                         continue;
                     }
                     String style = p.getStyle() == null ? "" : p.getStyle();
-                    blocks.add(new ParagraphBlock(text.trim(), style));
+                    int headingLevel = DocTexts.headingLevelFromStyle(style);
+                    boolean listItem = p.getNumID() != null;
+                    boolean ordered = listItem && isOrdered(formatted.plainText());
+                    blocks.add(new ParagraphBlock(
+                            formatted, style, headingLevel, listItem, ordered));
                 } else if (element instanceof XWPFTable) {
                     blocks.add(readTable((XWPFTable) element));
                 }
@@ -42,19 +48,23 @@ public final class SourceDocumentNormalizer {
         }
     }
 
+    private static boolean isOrdered(String text) {
+        return text != null && text.trim().matches("^\\d+[.)]\\s+.*");
+    }
+
     private static TableBlock readTable(XWPFTable table) {
         List<List<TableCell>> rows = new ArrayList<>();
         for (XWPFTableRow row : table.getRows()) {
             List<TableCell> cells = new ArrayList<>();
             for (XWPFTableCell cell : row.getTableCells()) {
-                List<String> paras = new ArrayList<>();
+                List<FormattedText> paras = new ArrayList<>();
                 for (XWPFParagraph p : cell.getParagraphs()) {
-                    String t = p.getText();
-                    if (t != null && !t.isBlank()) {
-                        paras.add(t.trim());
+                    FormattedText formatted = ParagraphTextReader.read(p);
+                    if (!formatted.isBlank()) {
+                        paras.add(formatted);
                     }
                 }
-                cells.add(new TableCell(paras));
+                cells.add(TableCell.ofFormatted(paras));
             }
             rows.add(cells);
         }

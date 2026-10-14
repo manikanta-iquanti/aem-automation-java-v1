@@ -4,7 +4,7 @@ import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 
 /**
- * Local Blueprint Studio web UI on {@code http://127.0.0.1:8080}.
+ * Local Blueprint Studio web UI on {@code http://127.0.0.1:8000}.
  *
  * <pre>
  * mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.studio.StudioMain"

@@ -1,22 +1,30 @@
 (() => {
   const state = {
     selectedId: null,
+    packageName: null,
+    cleanupInProgress: false,
     readiness: null,
     settings: {
       defaultPackageName: "bulk-content",
-      showGenerateTab: false,
       showAdaptTab: false,
+      showDownloadTemplate: false,
       showCreateBlueprint: true,
       showHelpText: false,
+      createApproach: "aem",
+      deliveryMethod: "download",
       aemBaseUrl: "http://localhost:4502",
       aemUsername: "admin",
       aemPassword: "admin",
     },
+    hasTemplate: false,
+    flyout: null,
     adapt: {
       jobId: null,
       reviews: [],
       index: 0,
       approved: {},
+      mappingId: "",
+      templatePath: "",
     },
   };
 
@@ -58,7 +66,9 @@
     let data = null;
     try { data = text ? JSON.parse(text) : null; } catch { data = { error: text }; }
     if (!res.ok) {
-      throw new Error((data && data.error) || res.statusText || "Request failed");
+      const error = new Error((data && data.error) || res.statusText || "Request failed");
+      error.data = data;
+      throw error;
     }
     return data;
   }
@@ -70,6 +80,7 @@
     document.querySelectorAll(".panel").forEach((p) => {
       p.classList.toggle("active", p.id === `panel-${name}`);
     });
+    document.body.classList.toggle("bp-tab-active", name === "blueprints");
   }
 
   function activeTabName() {
@@ -80,10 +91,12 @@
   function applyUiSettings(settings) {
     state.settings = {
       defaultPackageName: settings.defaultPackageName || "bulk-content",
-      showGenerateTab: !!settings.showGenerateTab,
       showAdaptTab: !!settings.showAdaptTab,
+      showDownloadTemplate: !!settings.showDownloadTemplate,
       showCreateBlueprint: settings.showCreateBlueprint !== false,
       showHelpText: !!settings.showHelpText,
+      createApproach: settings.createApproach === "upload" ? "upload" : "aem",
+      deliveryMethod: settings.deliveryMethod === "install" ? "install" : "download",
       aemBaseUrl: settings.aemBaseUrl || "http://localhost:4502",
       aemUsername: settings.aemUsername || "admin",
       aemPassword: settings.aemPassword != null ? settings.aemPassword : "admin",
@@ -92,25 +105,21 @@
     const s = state.settings;
     document.body.classList.toggle("show-help", s.showHelpText);
 
-    const tabGenerate = $("tabGenerate");
     const tabAdapt = $("tabAdapt");
-    tabGenerate.hidden = !s.showGenerateTab;
     tabAdapt.hidden = !s.showAdaptTab;
 
     const createSection = $("createBlueprintSection");
     createSection.hidden = !s.showCreateBlueprint;
-    $("derivedStepTitle").textContent = s.showCreateBlueprint
-      ? "2. Derived package paths"
-      : "1. Derived package paths";
-    $("pickerStepTitle").textContent = s.showCreateBlueprint
-      ? "3. Component picker"
-      : "2. Component picker";
+    applyCreateModeUi();
+    $("runBuild").textContent = s.deliveryMethod === "install"
+      ? "Build and install"
+      : "Build package";
 
     fillSettingsFormFromState();
+    applyDownloadVisibility();
 
     const current = activeTabName();
-    if ((current === "generate" && !s.showGenerateTab)
-        || (current === "adapt" && !s.showAdaptTab)) {
+    if (current === "adapt" && !s.showAdaptTab) {
       showTab("blueprints");
     }
 
@@ -119,10 +128,14 @@
 
   function fillSettingsFormFromState() {
     const s = state.settings;
-    $("setShowGenerate").checked = s.showGenerateTab;
     $("setShowAdapt").checked = s.showAdaptTab;
+    $("setShowDownloadTemplate").checked = s.showDownloadTemplate;
     $("setShowCreate").checked = s.showCreateBlueprint;
     $("setShowHelp").checked = s.showHelpText;
+    $("setCreateAem").checked = s.createApproach !== "upload";
+    $("setCreateUpload").checked = s.createApproach === "upload";
+    $("setDeliveryDownload").checked = s.deliveryMethod !== "install";
+    $("setDeliveryInstall").checked = s.deliveryMethod === "install";
     $("setDefaultPackage").value = s.defaultPackageName;
     $("setAemBaseUrl").value = s.aemBaseUrl;
     $("setAemUsername").value = s.aemUsername;
@@ -132,10 +145,12 @@
   function settingsFromForm() {
     return {
       defaultPackageName: $("setDefaultPackage").value.trim() || "bulk-content",
-      showGenerateTab: $("setShowGenerate").checked,
       showAdaptTab: $("setShowAdapt").checked,
+      showDownloadTemplate: $("setShowDownloadTemplate").checked,
       showCreateBlueprint: $("setShowCreate").checked,
       showHelpText: $("setShowHelp").checked,
+      createApproach: $("setCreateUpload").checked ? "upload" : "aem",
+      deliveryMethod: $("setDeliveryInstall").checked ? "install" : "download",
       aemBaseUrl: $("setAemBaseUrl").value.trim() || "http://localhost:4502",
       aemUsername: $("setAemUsername").value.trim() || "admin",
       aemPassword: $("setAemPassword").value,
@@ -176,26 +191,38 @@
     setSettingsOpen(open);
   });
   $("settingsClose").addEventListener("click", () => setSettingsOpen(false));
+  $("settingsPanel").addEventListener("click", (e) => {
+    if (e.target === $("settingsPanel")) setSettingsOpen(false);
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    if (!$("settingsPanel").hidden) {
+      setSettingsOpen(false);
+      return;
+    }
+    if (state.flyout) setFlyout(null);
+  });
   $("settingsSave").addEventListener("click", () => {
     saveSettings(settingsFromForm()).catch((e) => {
       $("settingsStatus").textContent = e.message;
     });
   });
   $("presetDaily").addEventListener("click", () => {
-    $("setShowGenerate").checked = false;
     $("setShowAdapt").checked = false;
+    $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
     $("setShowHelp").checked = false;
   });
   $("presetFull").addEventListener("click", () => {
-    $("setShowGenerate").checked = true;
     $("setShowAdapt").checked = true;
+    $("setShowDownloadTemplate").checked = false;
     $("setShowCreate").checked = true;
     $("setShowHelp").checked = true;
   });
 
   function clearEditor() {
     state.selectedId = null;
+    state.packageName = null;
     document.querySelectorAll("#blueprintList li").forEach((li) => {
       li.classList.remove("selected");
     });
@@ -206,7 +233,7 @@
     if ($("bpPageUrl")) $("bpPageUrl").value = "";
     if ($("createBpStatus")) $("createBpStatus").textContent = "";
     $("derivedBox").classList.add("muted");
-    $("derivedBox").textContent = "Upload a package to derive paths.";
+    $("derivedBox").textContent = "Fetch or upload a package to derive paths.";
     $("contentParentPath").value = "";
     $("samplePageName").value = "";
     $("packageName").value = "";
@@ -216,14 +243,13 @@
     $("picker").classList.add("muted");
     $("picker").textContent = "Select a blueprint to load components.";
     $("saveFields").disabled = true;
-    $("downloadTemplate").hidden = true;
+    $("cleanupPackage").disabled = true;
     $("downloadPackage").hidden = true;
-    $("generateStatus").textContent = "";
+    $("bpFooterStatus").textContent = "";
     $("buildStatus").textContent = "";
-    $("templatePreview").hidden = true;
     $("previewBlocks").innerHTML = "";
-    $("articlesGenerateStatus").textContent = "";
     $("articlesBuildStatus").textContent = "";
+    setPreviewAvailable(false);
     refreshReadiness();
   }
 
@@ -232,7 +258,7 @@
     const ul = $("blueprintList");
     ul.innerHTML = "";
     if (!list.length) {
-      ul.innerHTML = "<li class='muted'>No blueprints yet.</li>";
+      ul.innerHTML = "<li class='empty-state'>No blueprints yet.</li>";
       return;
     }
     list.forEach((bp) => {
@@ -256,6 +282,7 @@
 
   async function selectBlueprint(id, summary) {
     state.selectedId = id;
+    loadAdaptTemplates().catch(() => {});
     document.querySelectorAll("#blueprintList li").forEach((li) => {
       li.classList.toggle("selected", li.dataset.id === id);
     });
@@ -273,24 +300,27 @@
     try {
       const preview = await api(`/api/blueprints/${id}/template-preview`);
       renderTemplatePreview(preview.blocks || []);
-      const link = $("downloadTemplate");
-      link.hidden = false;
-      link.href = `/api/blueprints/${id}/download/template`;
-      $("generateStatus").textContent = "Existing template: " + preview.path;
+      setPreviewAvailable(true);
     } catch {
-      $("templatePreview").hidden = true;
       $("previewBlocks").innerHTML = "";
-      $("downloadTemplate").hidden = true;
+      setPreviewAvailable(false);
     }
   }
 
   function fillDerived(pkg) {
-    $("derivedBox").classList.remove("muted");
-    $("derivedBox").textContent =
-      `contentParentPath: ${pkg.contentParentPath}\n` +
-      `samplePageName:     ${pkg.samplePageName}\n` +
-      `packageName:        ${pkg.packageName}\n` +
-      `vaultPackageDir:    ${pkg.vaultPackageDir}`;
+    state.packageName = pkg.packageName || null;
+    const box = $("derivedBox");
+    box.classList.remove("muted");
+    const rows = [
+      ["contentParentPath", pkg.contentParentPath],
+      ["samplePageName", pkg.samplePageName],
+      ["packageName", pkg.packageName],
+      ["vaultPackageDir", pkg.vaultPackageDir],
+    ];
+    box.innerHTML = `<dl class="derived-list">${rows.map(([label, value]) => {
+      const text = value == null || value === "" ? "—" : String(value);
+      return `<div class="derived-row"><dt>${esc(label)}</dt><dd title="${esc(text)}">${esc(text)}</dd></div>`;
+    }).join("")}</dl>`;
     $("contentParentPath").value = pkg.contentParentPath || "";
     $("samplePageName").value = pkg.samplePageName || "";
     $("packageName").value = pkg.packageName || "";
@@ -302,22 +332,69 @@
   });
 
   function currentCreateMode() {
-    const checked = document.querySelector('input[name="createMode"]:checked');
-    return checked ? checked.value : "upload";
+    return state.settings.createApproach === "upload" ? "upload" : "aem";
   }
 
   function applyCreateModeUi() {
-    const mode = currentCreateMode();
-    const aem = mode === "aem";
+    const aem = currentCreateMode() === "aem";
     $("createModeUpload").hidden = aem;
     $("createModeAem").hidden = !aem;
     $("createBp").textContent = aem ? "Fetch & derive" : "Upload & derive";
+    const help = $("createHelp");
+    if (help) {
+      help.textContent = aem
+        ? "Fetch JSON and FileVault from local AEM Author (credentials in Settings)."
+        : "Upload blueprint JSON and a FileVault zip.";
+    }
   }
 
-  document.querySelectorAll('input[name="createMode"]').forEach((radio) => {
-    radio.addEventListener("change", applyCreateModeUi);
+  function setFlyout(name) {
+    state.flyout = name;
+    $("flyoutHistory").hidden = name !== "history";
+    $("flyoutPaths").hidden = name !== "paths";
+    $("flyoutPreview").hidden = name !== "preview";
+    $("railHistory").classList.toggle("active", name === "history");
+    $("railPaths").classList.toggle("active", name === "paths");
+    $("railPreview").classList.toggle("active", name === "preview");
+    $("railHistory").setAttribute("aria-pressed", name === "history" ? "true" : "false");
+    $("railPaths").setAttribute("aria-pressed", name === "paths" ? "true" : "false");
+    $("railPreview").setAttribute("aria-pressed", name === "preview" ? "true" : "false");
+    $("footerPreview").setAttribute("aria-pressed", name === "preview" ? "true" : "false");
+    document.querySelector(".bp-workspace").classList.toggle("flyout-open", !!name);
+  }
+
+  function applyDownloadVisibility() {
+    const link = $("downloadTemplate");
+    const show = !!(state.settings.showDownloadTemplate && state.hasTemplate && state.selectedId);
+    link.hidden = !show;
+    if (show) {
+      link.href = `/api/blueprints/${state.selectedId}/download/template`;
+    }
+  }
+
+  function setPreviewAvailable(available) {
+    state.hasTemplate = !!available;
+    $("railPreview").disabled = !available;
+    $("footerPreview").disabled = !available;
+    if (!available && state.flyout === "preview") {
+      setFlyout(null);
+    }
+    applyDownloadVisibility();
+  }
+
+  function togglePreviewFlyout() {
+    if ($("railPreview").disabled) return;
+    setFlyout(state.flyout === "preview" ? null : "preview");
+  }
+
+  $("railHistory").addEventListener("click", () => {
+    setFlyout(state.flyout === "history" ? null : "history");
   });
-  applyCreateModeUi();
+  $("railPaths").addEventListener("click", () => {
+    setFlyout(state.flyout === "paths" ? null : "paths");
+  });
+  $("railPreview").addEventListener("click", togglePreviewFlyout);
+  $("footerPreview").addEventListener("click", togglePreviewFlyout);
 
   $("bpJson").addEventListener("change", () => {
     if ($("bpJson").files[0]) {
@@ -335,6 +412,7 @@
     fillDerived(created.derived);
     await refreshList();
     await selectBlueprint(created.id, { package: created.derived });
+    setFlyout("paths");
     alert(created.hint || "Blueprint created.");
   }
 
@@ -449,27 +527,52 @@
     $("saveFields").disabled = false;
   }
 
+  function uiFormat(format) {
+    return format === "HTML" || format === "LIST" ? "HTML" : "PLAIN";
+  }
+
+  function formatSwitchHtml(format) {
+    const fmt = uiFormat(format);
+    return `<div class="fmt-switch" role="group" aria-label="Field format">
+      <button type="button" class="fmt-btn${fmt === "HTML" ? " active" : ""}" data-format="HTML" aria-pressed="${fmt === "HTML"}" title="HTML">&lt;&gt;</button>
+      <button type="button" class="fmt-btn${fmt === "PLAIN" ? " active" : ""}" data-format="PLAIN" aria-pressed="${fmt === "PLAIN"}" title="Plain text">Aa</button>
+    </div>`;
+  }
+
+  function bindFormatSwitch(row) {
+    row.querySelectorAll(".fmt-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        row.dataset.format = btn.dataset.format;
+        row.querySelectorAll(".fmt-btn").forEach((b) => {
+          const on = b.dataset.format === row.dataset.format;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+      });
+    });
+  }
+
   function renderPageField(pf) {
-    const row = document.createElement("div");
-    row.className = "component";
-    row.innerHTML = `<h4>Page fields</h4>`;
+    const rowWrap = document.createElement("div");
+    rowWrap.className = "component";
+    const header = document.createElement("div");
+    header.className = "comp-header";
+    header.innerHTML = `<div class="comp-titles"><h4>Page fields</h4></div>`;
+    rowWrap.appendChild(header);
     const propRow = document.createElement("div");
     propRow.className = "prop-row";
     propRow.dataset.page = "1";
     propRow.dataset.property = pf.property;
+    propRow.dataset.format = uiFormat(pf.format);
     propRow.innerHTML = `
       <input type="checkbox" ${pf.selected ? "checked" : ""} />
       <div class="prop-meta">
         <span class="prop-name">${esc(pf.property)}</span>
       </div>
-      <select>
-        <option value="PLAIN">PLAIN</option>
-        <option value="HTML">HTML</option>
-        <option value="LIST">LIST</option>
-      </select>`;
-    propRow.querySelector("select").value = pf.format || "PLAIN";
-    row.appendChild(propRow);
-    return row;
+      ${formatSwitchHtml(pf.format)}`;
+    bindFormatSwitch(propRow);
+    rowWrap.appendChild(propRow);
+    return rowWrap;
   }
 
   function renderComponent(comp) {
@@ -483,22 +586,39 @@
     const compCheck = document.createElement("input");
     compCheck.type = "checkbox";
     compCheck.className = "comp-check";
-    compCheck.checked = !!comp.selected;
-    compCheck.indeterminate = !!comp.partial && !comp.selected;
+    compCheck.title = "Include fields in the Word template";
+    compCheck.checked = !!comp.selected && !comp.excluded;
+    compCheck.indeterminate = !!comp.partial && !comp.selected && !comp.excluded;
     header.appendChild(compCheck);
 
     const titles = document.createElement("div");
     titles.className = "comp-titles";
+    const chip = (comp.resourceType || "").split("/").filter(Boolean).pop() || comp.resourceType;
     titles.innerHTML = `<h4>${esc(comp.name || "(component)")}</h4>
-      <div class="rt">${esc(comp.resourceType)}<br>${esc(comp.path)}</div>`;
+      <span class="rt-chip" title="${esc(comp.resourceType)}">${esc(chip)}</span>
+      <div class="rt">${esc(comp.path)}</div>`;
     header.appendChild(titles);
+
+    const excludeBtn = document.createElement("button");
+    excludeBtn.type = "button";
+    excludeBtn.className = "exclude-btn";
+    excludeBtn.textContent = "Exclude";
+    excludeBtn.title = "Remove this component from bulk-authored pages";
+    header.appendChild(excludeBtn);
     el.appendChild(header);
 
     (comp.properties || []).forEach((prop) => {
-      el.appendChild(renderProp(comp.resourceType, comp.path, prop));
+      const shown = Object.assign({}, prop, { selected: !!prop.selected && !comp.excluded });
+      el.appendChild(renderProp(comp.resourceType, comp.path, shown));
     });
 
+    excludeBtn.addEventListener("click", () => {
+      setExcluded(el, el.dataset.excluded !== "1");
+    });
+    setExcluded(el, !!comp.excluded);
+
     compCheck.addEventListener("change", () => {
+      if (el.dataset.excluded === "1") return;
       el.querySelectorAll(".prop-row input[type='checkbox']").forEach((cb) => {
         cb.checked = compCheck.checked;
       });
@@ -510,6 +630,28 @@
     });
 
     return el;
+  }
+
+  function setExcluded(el, excluded) {
+    el.dataset.excluded = excluded ? "1" : "0";
+    el.classList.toggle("is-excluded", excluded);
+    const excludeBtn = el.querySelector(".exclude-btn");
+    if (excludeBtn) {
+      excludeBtn.setAttribute("aria-pressed", excluded ? "true" : "false");
+      excludeBtn.textContent = excluded ? "Excluded" : "Exclude";
+    }
+    const compCheck = el.querySelector(".comp-check");
+    el.querySelectorAll(".prop-row input[type='checkbox'], .fmt-btn").forEach((control) => {
+      control.disabled = excluded;
+      if (excluded && control.type === "checkbox") control.checked = false;
+    });
+    if (compCheck) {
+      compCheck.disabled = excluded;
+      if (excluded) {
+        compCheck.checked = false;
+        compCheck.indeterminate = false;
+      }
+    }
   }
 
   function syncComponentCheck(el) {
@@ -527,6 +669,7 @@
     row.dataset.resourceType = resourceType;
     row.dataset.path = path;
     row.dataset.property = prop.property;
+    row.dataset.format = uiFormat(prop.format);
     const sample = previewSample(prop.sample);
     row.innerHTML = `
       <input type="checkbox" ${prop.selected ? "checked" : ""} />
@@ -534,12 +677,8 @@
         <span class="prop-name">${esc(prop.property)}</span>
         ${sample ? `<span class="prop-sample" title="${esc(stripHtml(prop.sample))}">${esc(sample)}</span>` : ""}
       </div>
-      <select>
-        <option value="PLAIN">PLAIN</option>
-        <option value="HTML">HTML</option>
-        <option value="LIST">LIST</option>
-      </select>`;
-    row.querySelector("select").value = prop.format || "PLAIN";
+      ${formatSwitchHtml(prop.format)}`;
+    bindFormatSwitch(row);
     return row;
   }
 
@@ -547,10 +686,16 @@
     if (!state.selectedId) return;
     const fields = [];
     const pageFields = [];
+    const excluded = [];
+    $("picker").querySelectorAll(".component[data-path]").forEach((card) => {
+      if (card.dataset.excluded === "1" && card.dataset.path) {
+        excluded.push(card.dataset.path);
+      }
+    });
     $("picker").querySelectorAll(".prop-row").forEach((row) => {
       const checked = row.querySelector('input[type="checkbox"]').checked;
       if (!checked) return;
-      const format = row.querySelector("select").value;
+      const format = uiFormat(row.dataset.format);
       if (row.dataset.page === "1") {
         pageFields.push({ property: row.dataset.property, format });
       } else {
@@ -562,24 +707,41 @@
         });
       }
     });
-    await api(`/api/blueprints/${state.selectedId}/fields`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fields, pageFields }),
-    });
-    await refreshList();
-    await refreshReadiness();
-    alert("Selection saved. Template will include only chosen components/fields.");
+    const status = $("bpFooterStatus");
+    $("saveFields").disabled = true;
+    status.textContent = "Saving…";
+    try {
+      await api(`/api/blueprints/${state.selectedId}/fields`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields, pageFields, excluded }),
+      });
+      await refreshList();
+      await refreshReadiness();
+      status.textContent = "Generating…";
+      try {
+        const result = await api(`/api/blueprints/${state.selectedId}/generate-template`, {
+          method: "POST",
+        });
+        renderTemplatePreview(result.blocks || []);
+        setPreviewAvailable(true);
+        status.textContent = "Template ready";
+      } catch (e) {
+        status.textContent = "Selection saved. Generate failed: " + e.message;
+      }
+    } catch (e) {
+      status.textContent = e.message;
+    } finally {
+      $("saveFields").disabled = !state.selectedId;
+    }
   });
 
   async function refreshReadiness() {
     const hint = $("readinessHint");
-    const tabGenerate = $("tabGenerate");
     const tabBuild = $("tabBuild");
     const helpOn = state.settings.showHelpText;
 
     if (!state.selectedId) {
-      tabGenerate.disabled = true;
       tabBuild.disabled = true;
       hint.hidden = true;
       hint.textContent = "";
@@ -588,7 +750,6 @@
     }
     const r = await api(`/api/blueprints/${state.selectedId}/readiness`);
     state.readiness = r;
-    tabGenerate.disabled = !r.generateTemplate.ready;
     // Open Build once package setup is ready — articles can be uploaded on that tab
     const buildSetupReady = !!(r.buildPackage.setupReady || r.buildPackage.ready);
     tabBuild.disabled = !buildSetupReady;
@@ -598,9 +759,6 @@
       hint.textContent = "";
     } else {
       const missing = [];
-      if (state.settings.showGenerateTab && !r.generateTemplate.ready) {
-        missing.push("Generate needs: " + (r.generateTemplate.missing.join(", ") || "—"));
-      }
       if (!r.buildPackage.ready) {
         missing.push("Build needs: " + (r.buildPackage.missing.join(", ") || "—"));
       }
@@ -617,7 +775,7 @@
       ? ""
       : "Missing: " + r.buildPackage.missing.join(", ");
     $("runBuild").disabled = !r.buildPackage.ready;
-    $("runGenerate").disabled = !r.generateTemplate.ready;
+    $("cleanupPackage").disabled = !state.selectedId || state.cleanupInProgress;
     renderArticleLists(r.buildPackage.articles || []);
   }
 
@@ -638,19 +796,16 @@
         ul.appendChild(li);
       });
     };
-    render("articlesGenerateList");
     render("articlesBuildList");
   }
 
   function renderTemplatePreview(blocks) {
-    const panel = $("templatePreview");
     const box = $("previewBlocks");
     box.innerHTML = "";
     if (!blocks || !blocks.length) {
-      panel.hidden = true;
+      box.innerHTML = "<p class='muted'>No preview blocks.</p>";
       return;
     }
-    panel.hidden = false;
     blocks.forEach((block) => {
       const el = document.createElement("div");
       el.className = "preview-block";
@@ -687,50 +842,66 @@
     }
   }
 
-  $("uploadArticlesGenerate").addEventListener("click", () => {
-    uploadArticlesFrom("articlesGenerate", "articlesGenerateStatus");
-  });
   $("uploadArticlesBuild").addEventListener("click", () => {
     uploadArticlesFrom("articles", "articlesBuildStatus");
   });
 
-  $("runGenerate").addEventListener("click", async () => {
-    if (!state.selectedId) return;
-    $("generateStatus").textContent = "Generating…";
-    try {
-      const result = await api(`/api/blueprints/${state.selectedId}/generate-template`, {
-        method: "POST",
-      });
-      $("generateStatus").textContent = "Template written to " + result.path;
-      const link = $("downloadTemplate");
-      link.hidden = false;
-      link.href = `/api/blueprints/${state.selectedId}/download/template`;
-      renderTemplatePreview(result.blocks || []);
-    } catch (e) {
-      $("generateStatus").textContent = e.message;
-      $("templatePreview").hidden = true;
-    }
-  });
-
   $("runBuild").addEventListener("click", async () => {
     if (!state.selectedId) return;
+    const installToAem = state.settings.deliveryMethod === "install";
     const files = $("articles").files;
     const fd = new FormData();
     for (const f of files) fd.append("articles", f);
-    $("buildStatus").textContent = "Building…";
+    $("buildStatus").textContent = installToAem
+      ? "Building and installing to AEM…"
+      : "Building…";
     try {
       const result = await api(`/api/blueprints/${state.selectedId}/build-package`, {
         method: "POST",
         body: fd,
       });
-      $("buildStatus").textContent = "Package written to " + result.path;
+      $("buildStatus").textContent = result.installed
+        ? (result.installMessage || "Package installed in AEM.")
+        : "Package written to " + result.path;
       const link = $("downloadPackage");
       link.hidden = false;
       link.href = `/api/blueprints/${state.selectedId}/download/package`;
       await refreshReadiness();
     } catch (e) {
       $("buildStatus").textContent = e.message;
+      if (e.data && e.data.path) {
+        const link = $("downloadPackage");
+        link.hidden = false;
+        link.href = `/api/blueprints/${state.selectedId}/download/package`;
+      }
       await refreshReadiness();
+    }
+  });
+
+  $("cleanupPackage").addEventListener("click", async () => {
+    if (!state.selectedId || state.cleanupInProgress) return;
+    const packageName = state.packageName || $("packageName").value.trim();
+    const packagePath = `/etc/packages/my_packages/${packageName}.zip`;
+    const confirmed = confirm(
+      `Remove ${packagePath} from AEM Package Manager?\n\n`
+      + "If it is installed, AEM will uninstall it before deleting the package archive."
+    );
+    if (!confirmed) return;
+
+    state.cleanupInProgress = true;
+    $("cleanupPackage").disabled = true;
+    $("buildStatus").textContent = "Checking package status in AEM…";
+    try {
+      const result = await api(
+        `/api/blueprints/${state.selectedId}/cleanup-package`,
+        { method: "POST" }
+      );
+      $("buildStatus").textContent = result.message;
+    } catch (e) {
+      $("buildStatus").textContent = e.message;
+    } finally {
+      state.cleanupInProgress = false;
+      $("cleanupPackage").disabled = !state.selectedId;
     }
   });
 
@@ -741,22 +912,74 @@
       const data = await api("/api/adapt/mappings");
       const ids = data.mappings || [];
       select.innerHTML = "";
-      if (!ids.length) {
-        select.innerHTML = '<option value="">No mappings in input/source-mappings</option>';
-        return;
-      }
+      const auto = document.createElement("option");
+      auto.value = "__auto__";
+      auto.textContent = "Auto (detect source + bind to template)";
+      select.appendChild(auto);
       ids.forEach((id) => {
         const opt = document.createElement("option");
         opt.value = id;
         opt.textContent = id;
         select.appendChild(opt);
       });
-      if (ids.includes("usb-content-hub-normal-page")) {
-        select.value = "usb-content-hub-normal-page";
+      select.value = "__auto__";
+      toggleAdaptAutoFields();
+    } catch (e) {
+      select.innerHTML = `<option value="">${esc(e.message)}</option>`;
+    }
+  }
+
+  async function loadAdaptTemplates() {
+    const select = $("adaptTemplate");
+    if (!select) return;
+    try {
+      const data = await api("/api/adapt/templates");
+      const templates = data.templates || [];
+      select.innerHTML = "";
+      if (!templates.length) {
+        select.innerHTML = '<option value="">No templates in input/templates</option>';
+        return;
+      }
+      templates.forEach((t) => {
+        const opt = document.createElement("option");
+        opt.value = t.path || t.id;
+        opt.textContent = t.id + (t.markers && t.markers.length ? ` (${t.markers.length} markers)` : "");
+        select.appendChild(opt);
+      });
+      if (state.selectedId) {
+        const match = templates.find((t) => t.id === state.selectedId);
+        if (match) select.value = match.path || match.id;
       }
     } catch (e) {
       select.innerHTML = `<option value="">${esc(e.message)}</option>`;
     }
+  }
+
+  async function loadAdaptRecipes() {
+    const select = $("adaptRecipe");
+    if (!select) return;
+    try {
+      const data = await api("/api/adapt/recipes");
+      const ids = data.recipes || ["auto"];
+      select.innerHTML = "";
+      ids.forEach((id) => {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = id === "auto" ? "Auto-detect" : id;
+        select.appendChild(opt);
+      });
+      select.value = "auto";
+    } catch (e) {
+      select.innerHTML = '<option value="auto">Auto-detect</option>';
+    }
+  }
+
+  function toggleAdaptAutoFields() {
+    const auto = $("adaptMapping") && $("adaptMapping").value === "__auto__";
+    const template = $("adaptTemplate");
+    const recipe = $("adaptRecipe");
+    if (template) template.disabled = !auto;
+    if (recipe) recipe.disabled = !auto;
   }
 
   function currentAdaptReview() {
@@ -771,8 +994,15 @@
       return;
     }
     panel.hidden = false;
+    const total = state.adapt.reviews.length;
     $("adaptIndex").textContent =
-      `${state.adapt.index + 1} / ${state.adapt.reviews.length}: ${review.sourceFile}`;
+      `${state.adapt.index + 1} / ${total}: ${review.sourceFile}`;
+    const pageInput = $("adaptPageInput");
+    pageInput.max = String(total);
+    pageInput.value = String(state.adapt.index + 1);
+    $("adaptPageTotal").textContent = `of ${total}`;
+    renderAdaptFileSelect();
+    renderAdaptApprovedCount();
     $("adaptSourcePlain").textContent = review.sourcePlainText || "(empty)";
 
     const mapped = $("adaptMappedSlots");
@@ -785,14 +1015,49 @@
       mapped.appendChild(el);
     });
 
+    const hint = $("adaptRecipeHint");
+    if (hint) {
+      const bits = [];
+      if (review.recipeId) bits.push("Recipe: " + review.recipeId);
+      if (review.bindStrategy) bits.push("Bind: " + review.bindStrategy);
+      hint.textContent = bits.join(" · ");
+    }
+
     const strip = $("adaptSlotStrip");
     strip.innerHTML = "";
+    const units = review.units || [];
     (review.slots || []).forEach((slot) => {
       const row = document.createElement("div");
       row.className = "adapt-slot-row";
-      row.innerHTML = `<code>${esc(slot.path)}</code>
-        <div class="muted-cell">${esc(slot.sourceExcerpt || "")}</div>
-        <div class="muted-cell">${esc(previewSample(slot.value) || "(empty)")}</div>`;
+      const path = document.createElement("code");
+      path.textContent = slot.path;
+      row.appendChild(path);
+      if (units.length) {
+        const select = document.createElement("select");
+        select.className = "adapt-unit-select";
+        select.dataset.path = slot.path;
+        const empty = document.createElement("option");
+        empty.value = "__empty__";
+        empty.textContent = "(leave empty)";
+        select.appendChild(empty);
+        units.forEach((unit) => {
+          const opt = document.createElement("option");
+          opt.value = unit.id;
+          opt.textContent = unit.label;
+          select.appendChild(opt);
+        });
+        select.value = slot.unitId || "__empty__";
+        row.appendChild(select);
+      } else {
+        const excerpt = document.createElement("div");
+        excerpt.className = "muted-cell";
+        excerpt.textContent = slot.sourceExcerpt || "";
+        row.appendChild(excerpt);
+      }
+      const preview = document.createElement("div");
+      preview.className = "muted-cell";
+      preview.textContent = previewSample(slot.value) || "(empty)";
+      row.appendChild(preview);
       strip.appendChild(row);
     });
 
@@ -806,30 +1071,144 @@
     $("adaptNext").disabled = state.adapt.index >= state.adapt.reviews.length - 1;
   }
 
+  function renderAdaptFileSelect() {
+    const select = $("adaptFileSelect");
+    const reviews = state.adapt.reviews;
+    if (select.options.length !== reviews.length) {
+      select.innerHTML = "";
+      reviews.forEach((r, i) => {
+        const opt = document.createElement("option");
+        opt.value = String(i);
+        select.appendChild(opt);
+      });
+    }
+    reviews.forEach((r, i) => {
+      const mark = state.adapt.approved[r.adaptedFile] ? "\u2713 " : "";
+      select.options[i].textContent = `${mark}${i + 1}. ${r.sourceFile}`;
+    });
+    select.value = String(state.adapt.index);
+  }
+
+  function renderAdaptApprovedCount() {
+    const total = state.adapt.reviews.length;
+    const approved = state.adapt.reviews.filter((r) => state.adapt.approved[r.adaptedFile]).length;
+    $("adaptApprovedCount").textContent = `${approved} of ${total} approved`;
+  }
+
+  function goToAdaptReview(index) {
+    const total = state.adapt.reviews.length;
+    if (!total) return;
+    if (Number.isNaN(index) || index < 0 || index >= total) {
+      renderAdaptReview();
+      return;
+    }
+    state.adapt.index = index;
+    renderAdaptReview();
+  }
+
+  function collectAdaptBindings() {
+    const selects = document.querySelectorAll("#adaptSlotStrip .adapt-unit-select");
+    const bindings = [];
+    selects.forEach((sel) => {
+      bindings.push({ unit: sel.value, path: sel.dataset.path });
+    });
+    return bindings;
+  }
+
+  $("adaptMapping").addEventListener("change", toggleAdaptAutoFields);
+
   $("runAdapt").addEventListener("click", async () => {
     const mappingId = $("adaptMapping").value;
     if (!mappingId) {
-      alert("Select a mapping (or add JSON under input/source-mappings).");
+      alert("Select Auto or a saved mapping.");
+      return;
+    }
+    if (mappingId === "__auto__" && !$("adaptTemplate").value) {
+      alert("Select a target template.");
       return;
     }
     const fd = new FormData();
     fd.append("mappingId", mappingId);
+    fd.append("template", $("adaptTemplate").value || "");
+    fd.append("recipe", $("adaptRecipe").value || "auto");
     const files = $("adaptSources").files;
     for (const f of files) fd.append("sources", f);
     $("adaptStatus").textContent = "Adapting…";
     try {
       const result = await api("/api/adapt/run", { method: "POST", body: fd });
       state.adapt.jobId = result.jobId;
+      state.adapt.mappingId = result.mappingId;
+      state.adapt.templatePath = result.templatePath || $("adaptTemplate").value;
       state.adapt.reviews = result.reviews || [];
       state.adapt.index = 0;
       state.adapt.approved = {};
       $("adaptStatus").textContent =
-        `Adapted ${state.adapt.reviews.length} file(s). Review side-by-side below.`;
+        `Adapted ${state.adapt.reviews.length} file(s). Review and adjust slot bindings below.`;
       $("adaptSources").value = "";
       renderAdaptReview();
     } catch (e) {
       $("adaptStatus").textContent = e.message;
       $("adaptReview").hidden = true;
+    }
+  });
+
+  $("adaptApplyRest").addEventListener("click", async () => {
+    if (!state.adapt.jobId) {
+      alert("Run adapt first.");
+      return;
+    }
+    const bindings = collectAdaptBindings();
+    if (!bindings.length) {
+      alert("This job has no editable bindings (saved path mappings cannot be rebound here).");
+      return;
+    }
+    $("adaptBindStatus").textContent = "Rebinding…";
+    try {
+      const result = await api("/api/adapt/rebind", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: state.adapt.jobId, bindings }),
+      });
+      state.adapt.reviews = result.reviews || [];
+      $("adaptBindStatus").textContent =
+        `Re-adapted all ${state.adapt.reviews.length} file(s) with these slot choices. Approvals are unchanged.`;
+      renderAdaptReview();
+    } catch (e) {
+      $("adaptBindStatus").textContent = e.message;
+    }
+  });
+
+  $("adaptSaveMapping").addEventListener("click", async () => {
+    const id = ($("adaptSaveId").value || "").trim();
+    if (!id) {
+      alert("Enter a mapping id to save.");
+      return;
+    }
+    const review = currentAdaptReview();
+    const template = state.adapt.templatePath || $("adaptTemplate").value;
+    if (!template) {
+      alert("Select the target template this mapping should use.");
+      return;
+    }
+    $("adaptBindStatus").textContent = "Saving…";
+    try {
+      const result = await api("/api/adapt/mappings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          targetTemplate: template,
+          sourceRecipe: review && review.recipeId ? review.recipeId : ($("adaptRecipe").value || "auto"),
+          bindStrategy: review && review.bindStrategy ? review.bindStrategy : null,
+          bindings: collectAdaptBindings().filter((b) => b.unit && b.unit !== "__empty__"),
+        }),
+      });
+      $("adaptBindStatus").textContent = "Saved " + result.path;
+      await loadAdaptMappings();
+      $("adaptMapping").value = result.id;
+      toggleAdaptAutoFields();
+    } catch (e) {
+      $("adaptBindStatus").textContent = e.message;
     }
   });
 
@@ -845,6 +1224,18 @@
       renderAdaptReview();
     }
   });
+  $("adaptPageInput").addEventListener("change", () => {
+    goToAdaptReview(parseInt($("adaptPageInput").value, 10) - 1);
+  });
+  $("adaptPageInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      goToAdaptReview(parseInt($("adaptPageInput").value, 10) - 1);
+    }
+  });
+  $("adaptFileSelect").addEventListener("change", () => {
+    goToAdaptReview(parseInt($("adaptFileSelect").value, 10));
+  });
   $("adaptApprove").addEventListener("change", () => {
     const review = currentAdaptReview();
     if (!review) return;
@@ -853,6 +1244,18 @@
     } else {
       delete state.adapt.approved[review.adaptedFile];
     }
+    renderAdaptFileSelect();
+    renderAdaptApprovedCount();
+  });
+  $("adaptApproveAll").addEventListener("click", () => {
+    state.adapt.reviews.forEach((r) => {
+      state.adapt.approved[r.adaptedFile] = true;
+    });
+    renderAdaptReview();
+  });
+  $("adaptClearApprovals").addEventListener("click", () => {
+    state.adapt.approved = {};
+    renderAdaptReview();
   });
 
   $("adaptSendArticles").addEventListener("click", async () => {
@@ -881,8 +1284,9 @@
         }),
       });
       $("adaptSendStatus").textContent =
-        `Sent ${result.articles.length} file(s) to articles. Build package when ready.`;
+        `Sent ${result.articles.length} file(s) to articles. Opening Build package…`;
       await refreshReadiness();
+      showTab("build");
     } catch (e) {
       $("adaptSendStatus").textContent = e.message;
     }
@@ -890,5 +1294,18 @@
 
   loadSettings().catch((e) => console.warn("Settings load failed:", e.message));
   loadAdaptMappings().catch(() => {});
+  loadAdaptTemplates().catch(() => {});
+  loadAdaptRecipes().catch(() => {});
   refreshList().catch((e) => alert(e.message));
+
+  const backToTop = $("backToTop");
+  function syncBackToTop() {
+    const y = window.scrollY || document.documentElement.scrollTop;
+    backToTop.hidden = y < 240;
+  }
+  window.addEventListener("scroll", syncBackToTop, { passive: true });
+  backToTop.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  syncBackToTop();
 })();

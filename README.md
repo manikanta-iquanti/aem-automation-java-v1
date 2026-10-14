@@ -103,7 +103,7 @@ mvn -q compile
 mvn -q compile exec:java -Dexec.mainClass="com.aem.bulkauthoring.studio.StudioMain"
 ```
 
-Open [http://127.0.0.1:8080](http://127.0.0.1:8080). Full guide: [docs/phase-4-blueprint-studio.md](docs/phase-4-blueprint-studio.md).
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). Full guide: [docs/phase-4-blueprint-studio.md](docs/phase-4-blueprint-studio.md).
 
 ### CLI Phase 1 — generate a Word template
 

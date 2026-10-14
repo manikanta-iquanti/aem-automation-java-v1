@@ -55,6 +55,8 @@ temp/
 ############################
 
 input/articles/
+input/raw-source-docs/
+input/blueprint/
 
 ############################
 # Logs

@@ -44,6 +44,9 @@ public class DocumentTemplateGenerator {
             }
 
             for (BlueprintComponent component : blueprint.getComponents()) {
+                if (isExcluded(profile, component.getPath())) {
+                    continue;
+                }
                 List<EditableField> fields =
                         profile.fieldsFor(component.getResourceType(), component.getPath());
 
@@ -73,6 +76,25 @@ public class DocumentTemplateGenerator {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean isExcluded(BlueprintTemplateProfile profile, String componentPath) {
+        if (profile == null || componentPath == null) {
+            return false;
+        }
+        String normalized = componentPath.trim().replace('\\', '/');
+        if (!normalized.startsWith("/")) {
+            normalized = "/" + normalized;
+        }
+        if (normalized.endsWith("/") && normalized.length() > 1) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        for (String excluded : profile.excludedPaths()) {
+            if (normalized.equals(excluded)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String resolveComponentValue(JsonNode root,

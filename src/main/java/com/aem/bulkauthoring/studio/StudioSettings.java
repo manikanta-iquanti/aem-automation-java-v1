@@ -21,14 +21,18 @@ public final class StudioSettings {
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private String defaultPackageName = DEFAULT_PACKAGE_NAME;
-    /** Daily authoring default: Generate hidden until setup is needed. */
-    private boolean showGenerateTab = false;
     /** Daily authoring default: Adapt hidden until source conversion is needed. */
     private boolean showAdaptTab = false;
+    /** Opt-in download of the generated Word template. */
+    private boolean showDownloadTemplate = false;
     /** Keep create/upload available when adding a new blueprint. */
     private boolean showCreateBlueprint = true;
     /** Daily authoring default: hide instructional copy. */
     private boolean showHelpText = false;
+    /** How new blueprints are created in Studio: {@code aem} or {@code upload}. */
+    private String createApproach = "aem";
+    /** What happens after building a package: {@code download} or {@code install}. */
+    private String deliveryMethod = "download";
 
     private String aemBaseUrl = DEFAULT_AEM_BASE_URL;
     private String aemUsername = DEFAULT_AEM_USERNAME;
@@ -46,20 +50,20 @@ public final class StudioSettings {
         }
     }
 
-    public boolean isShowGenerateTab() {
-        return showGenerateTab;
-    }
-
-    public void setShowGenerateTab(boolean showGenerateTab) {
-        this.showGenerateTab = showGenerateTab;
-    }
-
     public boolean isShowAdaptTab() {
         return showAdaptTab;
     }
 
     public void setShowAdaptTab(boolean showAdaptTab) {
         this.showAdaptTab = showAdaptTab;
+    }
+
+    public boolean isShowDownloadTemplate() {
+        return showDownloadTemplate;
+    }
+
+    public void setShowDownloadTemplate(boolean showDownloadTemplate) {
+        this.showDownloadTemplate = showDownloadTemplate;
     }
 
     public boolean isShowCreateBlueprint() {
@@ -76,6 +80,30 @@ public final class StudioSettings {
 
     public void setShowHelpText(boolean showHelpText) {
         this.showHelpText = showHelpText;
+    }
+
+    public String getCreateApproach() {
+        return createApproach;
+    }
+
+    public void setCreateApproach(String createApproach) {
+        if ("upload".equalsIgnoreCase(createApproach)) {
+            this.createApproach = "upload";
+        } else {
+            this.createApproach = "aem";
+        }
+    }
+
+    public String getDeliveryMethod() {
+        return deliveryMethod;
+    }
+
+    public void setDeliveryMethod(String deliveryMethod) {
+        if ("install".equalsIgnoreCase(deliveryMethod)) {
+            this.deliveryMethod = "install";
+        } else {
+            this.deliveryMethod = "download";
+        }
     }
 
     public String getAemBaseUrl() {
@@ -122,10 +150,12 @@ public final class StudioSettings {
     public Map<String, Object> toMap() {
         Map<String, Object> map = new LinkedHashMap<>();
         map.put("defaultPackageName", defaultPackageName);
-        map.put("showGenerateTab", showGenerateTab);
         map.put("showAdaptTab", showAdaptTab);
+        map.put("showDownloadTemplate", showDownloadTemplate);
         map.put("showCreateBlueprint", showCreateBlueprint);
         map.put("showHelpText", showHelpText);
+        map.put("createApproach", createApproach);
+        map.put("deliveryMethod", deliveryMethod);
         map.put("aemBaseUrl", aemBaseUrl);
         map.put("aemUsername", aemUsername);
         map.put("aemPassword", aemPassword);
@@ -139,17 +169,23 @@ public final class StudioSettings {
         if (body.has("defaultPackageName")) {
             setDefaultPackageName(body.get("defaultPackageName").asText());
         }
-        if (body.has("showGenerateTab")) {
-            setShowGenerateTab(body.get("showGenerateTab").asBoolean());
-        }
         if (body.has("showAdaptTab")) {
             setShowAdaptTab(body.get("showAdaptTab").asBoolean());
+        }
+        if (body.has("showDownloadTemplate")) {
+            setShowDownloadTemplate(body.get("showDownloadTemplate").asBoolean());
         }
         if (body.has("showCreateBlueprint")) {
             setShowCreateBlueprint(body.get("showCreateBlueprint").asBoolean());
         }
         if (body.has("showHelpText")) {
             setShowHelpText(body.get("showHelpText").asBoolean());
+        }
+        if (body.has("createApproach")) {
+            setCreateApproach(body.get("createApproach").asText());
+        }
+        if (body.has("deliveryMethod")) {
+            setDeliveryMethod(body.get("deliveryMethod").asText());
         }
         if (body.has("aemBaseUrl")) {
             setAemBaseUrl(body.get("aemBaseUrl").asText());
@@ -179,10 +215,12 @@ public final class StudioSettings {
     public void save() throws IOException {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("defaultPackageName", defaultPackageName);
-        root.put("showGenerateTab", showGenerateTab);
         root.put("showAdaptTab", showAdaptTab);
+        root.put("showDownloadTemplate", showDownloadTemplate);
         root.put("showCreateBlueprint", showCreateBlueprint);
         root.put("showHelpText", showHelpText);
+        root.put("createApproach", createApproach);
+        root.put("deliveryMethod", deliveryMethod);
         root.put("aemBaseUrl", aemBaseUrl);
         root.put("aemUsername", aemUsername);
         root.put("aemPassword", aemPassword);

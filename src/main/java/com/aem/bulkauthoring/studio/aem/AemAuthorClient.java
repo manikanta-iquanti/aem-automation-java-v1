@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -26,6 +28,20 @@ public final class AemAuthorClient {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final String PACKAGE_GROUP = "studio";
+    /** Must match the group written by VaultMetadataWriter for generated packages. */
+    private static final String GENERATED_PACKAGE_GROUP = "my_packages";
+
+    public enum PackageCleanupOutcome {
+        NOT_FOUND,
+        DELETED_UPLOADED,
+        UNINSTALLED_AND_DELETED
+    }
+
+    private enum PackageStatus {
+        ABSENT,
+        UPLOADED,
+        INSTALLED
+    }
 
     private final String baseUrl;
     private final String basicAuthHeader;
@@ -159,6 +175,147 @@ public final class AemAuthorClient {
         return new ByteArrayInputStream(exportPagePackage(pageUrlOrPath));
     }
 
+    /**
+     * Uploads a FileVault zip to Package Manager and installs the uploaded package.
+     *
+     * @return the Package Manager success message, when provided
+     */
+    public String uploadAndInstall(File zip) throws IOException, InterruptedException {
+        if (zip == null || !zip.isFile()) {
+            throw new IllegalArgumentException("Package zip not found");
+        }
+        if (!zip.getName().toLowerCase().endsWith(".zip")) {
+            throw new IllegalArgumentException("Package must be a .zip file: " + zip.getName());
+        }
+        if (!zip.getName().matches("[A-Za-z0-9][A-Za-z0-9._-]*\\.zip")) {
+            throw new IllegalArgumentException(
+                    "Package filename may contain only letters, numbers, dots, underscores, and hyphens");
+        }
+
+        String boundary = "----StudioBoundary" + UUID.randomUUID().toString().replace("-", "");
+        String safeFilename = zip.getName()
+                .replace("\r", "_")
+                .replace("\n", "_")
+                .replace("\"", "_");
+        byte[] prefix = (
+                "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"force\"\r\n\r\n"
+                        + "true\r\n"
+                        + "--" + boundary + "\r\n"
+                        + "Content-Disposition: form-data; name=\"package\"; filename=\""
+                        + safeFilename + "\"\r\n"
+                        + "Content-Type: application/zip\r\n\r\n")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        byte[] suffix = ("\r\n--" + boundary + "--\r\n")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        ByteArrayOutputStream multipart = new ByteArrayOutputStream();
+        multipart.write(prefix);
+        try (InputStream zipIn = java.nio.file.Files.newInputStream(zip.toPath())) {
+            zipIn.transferTo(multipart);
+        }
+        multipart.write(suffix);
+
+        HttpResponse<byte[]> upload = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/service/.json/?cmd=upload"))
+                .timeout(Duration.ofMinutes(5))
+                .header("Authorization", basicAuthHeader)
+                .header("Content-Type", "multipart/form-data; boundary=" + boundary)
+                .POST(HttpRequest.BodyPublishers.ofByteArray(multipart.toByteArray()))
+                .build());
+        ensureOk(upload, "Upload package " + zip.getName());
+        ensurePackmgrSuccess(upload.body(), "Upload package " + zip.getName());
+
+        String packagePath = "/etc/packages/" + GENERATED_PACKAGE_GROUP + "/" + zip.getName();
+
+        HttpResponse<byte[]> install = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/service/.json"
+                                + packagePath + "?cmd=install"))
+                .timeout(Duration.ofMinutes(5))
+                .header("Authorization", basicAuthHeader)
+                .POST(HttpRequest.BodyPublishers.noBody())
+                .build());
+        ensureOk(install, "Install package " + packagePath);
+        ensurePackmgrSuccess(install.body(), "Install package " + packagePath);
+
+        JsonNode installResult = readPackmgrJson(install.body(), "Install package " + packagePath);
+        return installResult.path("msg").asText("Package installed");
+    }
+
+    /**
+     * Removes the generated package with the configured name from Package Manager.
+     * Installed packages are uninstalled before their package record is deleted.
+     */
+    public PackageCleanupOutcome cleanupGeneratedPackage(String packageName)
+            throws IOException, InterruptedException {
+        validatePackageName(packageName);
+        PackageStatus status = generatedPackageStatus(packageName);
+        if (status == PackageStatus.ABSENT) {
+            return PackageCleanupOutcome.NOT_FOUND;
+        }
+
+        String packagePath = generatedPackagePath(packageName);
+        if (status == PackageStatus.INSTALLED) {
+            runPackageCommand(packagePath, "uninstall", "Uninstall package ");
+            runPackageCommand(packagePath, "delete", "Delete package ");
+            return PackageCleanupOutcome.UNINSTALLED_AND_DELETED;
+        }
+
+        runPackageCommand(packagePath, "delete", "Delete package ");
+        return PackageCleanupOutcome.DELETED_UPLOADED;
+    }
+
+    private PackageStatus generatedPackageStatus(String packageName)
+            throws IOException, InterruptedException {
+        HttpResponse<byte[]> response = send(HttpRequest.newBuilder(
+                        URI.create(baseUrl + "/crx/packmgr/list.jsp"))
+                .timeout(Duration.ofSeconds(60))
+                .GET()
+                .header("Authorization", basicAuthHeader)
+                .header("Accept", "application/json")
+                .build());
+        ensureOk(response, "List packages");
+        JsonNode result = readPackmgrJson(response.body(), "List packages");
+        JsonNode packages = result.get("results");
+        if (packages == null || !packages.isArray()) {
+            throw new IllegalArgumentException("List packages returned an invalid response");
+        }
+
+        for (JsonNode pkg : packages) {
+            if (GENERATED_PACKAGE_GROUP.equals(pkg.path("group").asText())
+                    && packageName.equals(pkg.path("name").asText())) {
+                return pkg.path("lastUnpacked").asLong(0) > 0
+                        ? PackageStatus.INSTALLED
+                        : PackageStatus.UPLOADED;
+            }
+        }
+        return PackageStatus.ABSENT;
+    }
+
+    private static void validatePackageName(String packageName) {
+        if (packageName == null
+                || !packageName.matches("[A-Za-z0-9][A-Za-z0-9._-]*")) {
+            throw new IllegalArgumentException(
+                    "Package name may contain only letters, numbers, dots, underscores, and hyphens");
+        }
+    }
+
+    private static String generatedPackagePath(String packageName) {
+        return "/etc/packages/" + GENERATED_PACKAGE_GROUP + "/" + packageName + ".zip";
+    }
+
+    private static JsonNode readPackmgrJson(byte[] body, String action) {
+        JsonNode result;
+        try {
+            result = MAPPER.readTree(body);
+        } catch (IOException e) {
+            throw new IllegalArgumentException(action + " returned an invalid response");
+        }
+        if (result == null || !result.isObject()) {
+            throw new IllegalArgumentException(action + " returned an invalid response");
+        }
+        return result;
+    }
+
     private void createPackage(String packageName) throws IOException, InterruptedException {
         String url = baseUrl + "/crx/packmgr/service/.json/etc/packages/"
                 + PACKAGE_GROUP + "/" + packageName + ".zip?cmd=create";
@@ -227,12 +384,19 @@ public final class AemAuthorClient {
     }
 
     private void deletePackage(String packagePath) throws IOException, InterruptedException {
-        String url = baseUrl + "/crx/packmgr/service/.json" + packagePath + "?cmd=delete";
-        send(HttpRequest.newBuilder(URI.create(url))
+        runPackageCommand(packagePath, "delete", "Delete package ");
+    }
+
+    private void runPackageCommand(String packagePath, String command, String action)
+            throws IOException, InterruptedException {
+        String url = baseUrl + "/crx/packmgr/service/.json" + packagePath + "?cmd=" + command;
+        HttpResponse<byte[]> response = send(HttpRequest.newBuilder(URI.create(url))
                 .timeout(Duration.ofSeconds(60))
                 .header("Authorization", basicAuthHeader)
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build());
+        ensureOk(response, action + packagePath);
+        ensurePackmgrSuccess(response.body(), action + packagePath);
     }
 
     private HttpResponse<byte[]> send(HttpRequest request) throws IOException, InterruptedException {

@@ -31,6 +31,7 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
     private final File blueprintJson;
     private final List<StoredField> storedFields;
     private final List<EditableField> pageFields;
+    private final List<String> excludedPaths;
     private final BlueprintPackageConfig packageConfig;
     private final ObjectNode root;
     private final Set<String> typesWithPathScope;
@@ -40,6 +41,7 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
                                  File blueprintJson,
                                  List<StoredField> storedFields,
                                  List<EditableField> pageFields,
+                                 List<String> excludedPaths,
                                  BlueprintPackageConfig packageConfig,
                                  ObjectNode root) {
         this.id = id;
@@ -47,6 +49,7 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
         this.blueprintJson = blueprintJson;
         this.storedFields = storedFields;
         this.pageFields = pageFields;
+        this.excludedPaths = excludedPaths;
         this.packageConfig = packageConfig;
         this.root = root;
         this.typesWithPathScope = new LinkedHashSet<>();
@@ -92,6 +95,20 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
                 }
             }
 
+            List<String> excluded = new ArrayList<>();
+            JsonNode excludedNode = root.get("excluded");
+            if (excludedNode != null && excludedNode.isArray()) {
+                for (JsonNode item : excludedNode) {
+                    if (item == null || item.isNull()) {
+                        continue;
+                    }
+                    String path = normalizePath(item.asText());
+                    if (!path.isEmpty() && !excluded.contains(path)) {
+                        excluded.add(path);
+                    }
+                }
+            }
+
             List<EditableField> pageFields = new ArrayList<>();
             JsonNode pageFieldsNode = root.get("pageFields");
             if (pageFieldsNode != null && pageFieldsNode.isArray()) {
@@ -133,6 +150,7 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
                     new File(blueprintPath),
                     stored,
                     pageFields,
+                    excluded,
                     packageConfig,
                     root
             );
@@ -171,8 +189,18 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
         return out;
     }
 
+    public List<String> excludedPaths() {
+        return Collections.unmodifiableList(excludedPaths);
+    }
+
     public void saveFields(List<FieldSelection> componentFields,
                            List<FieldSelection> pageFieldSelections) throws IOException {
+        saveFields(componentFields, pageFieldSelections, excludedPaths);
+    }
+
+    public void saveFields(List<FieldSelection> componentFields,
+                           List<FieldSelection> pageFieldSelections,
+                           List<String> excluded) throws IOException {
         ArrayNode fields = MAPPER.createArrayNode();
         for (FieldSelection sel : componentFields) {
             ObjectNode node = MAPPER.createObjectNode();
@@ -194,6 +222,19 @@ public final class JsonBlueprintProfile implements BlueprintTemplateProfile {
             pageArr.add(node);
         }
         root.set("pageFields", pageArr);
+
+        ArrayNode excludedArr = MAPPER.createArrayNode();
+        List<String> incoming = excluded == null ? List.of() : new ArrayList<>(excluded);
+        excludedPaths.clear();
+        for (String path : incoming) {
+            String normalized = normalizePath(path);
+            if (normalized.isEmpty() || excludedPaths.contains(normalized)) {
+                continue;
+            }
+            excludedPaths.add(normalized);
+            excludedArr.add(normalized);
+        }
+        root.set("excluded", excludedArr);
 
         MAPPER.writerWithDefaultPrettyPrinter().writeValue(profileFile, root);
     }
