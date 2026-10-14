@@ -117,6 +117,41 @@ class SourceRecipeTest {
         assertTrue(!content.blocksHtml().contains("Do not include"));
     }
 
+    @Test
+    void usbRealSampleSplitsIntoSectionsPerElementTable() throws Exception {
+        NormalizedDocument doc = new SourceDocumentNormalizer().normalize(USB_SOURCE);
+        ContentDocument content = new UsbTableFormRecipe().extract(doc);
+
+        List<String> sections = content.sections();
+        assertTrue(sections.size() > 1, "expected several Element/Content sections");
+        assertTrue(sections.stream().anyMatch(s ->
+                s.contains("<h2>Fight uncertainty with optimization</h2>")));
+        assertEquals(String.join("\n", sections), content.blocksHtml());
+        assertTrue(content.selectableUnits().stream().anyMatch(u -> "section:2".equals(u.getId())));
+    }
+
+    @Test
+    void usbRecipeTagsEachElementTableAsItsOwnSection() {
+        TableBlock bodyHeader = new TableBlock(List.of(List.of(cell("*Body"))));
+        TableBlock first = new TableBlock(List.of(
+                List.of(cell("Element"), cell("Content")),
+                List.of(cell("p-text"), cell("Intro"))
+        ));
+        TableBlock second = new TableBlock(List.of(
+                List.of(cell("Element"), cell("Content")),
+                List.of(cell("H2"), cell("Second")),
+                List.of(cell("p-text"), cell("Body two"))
+        ));
+        NormalizedDocument doc = new NormalizedDocument("s.docx",
+                List.of(bodyHeader, first, second));
+
+        ContentDocument content = new UsbTableFormRecipe().extract(doc);
+        assertEquals(List.of(1, 2, 2), content.getBlocks().stream()
+                .map(ContentUnit::getSection).collect(java.util.stream.Collectors.toList()));
+        assertEquals(List.of("<p>Intro</p>", "<h2>Second</h2>\n<p>Body two</p>"),
+                content.sections());
+    }
+
     private static TableCell cell(String text) {
         return new TableCell(List.of(text));
     }

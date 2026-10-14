@@ -97,6 +97,49 @@ class BindingEngineTest {
         assertEquals("manual", bound.getBindStrategy());
     }
 
+    @Test
+    void sectionsBindToBasePathThenRepeatedMarkers() {
+        String article = "/jcr:content/root/responsivegrid/advancedlayout_copy/leftPar/textmodule_copy/text";
+        ContentDocument content = new ContentDocument(
+                "usb-table-form",
+                "USB title",
+                List.of(
+                        ContentUnit.paragraph("Intro").inSection(1),
+                        ContentUnit.heading(2, "Two").inSection(2),
+                        ContentUnit.paragraph("Body two").inSection(2),
+                        ContentUnit.list(false, List.of("A")).inSection(3)
+                ));
+        SlotCatalog catalog = SlotCatalog.fromPaths(List.of(
+                "/jcr:content/jcr:title",
+                article
+        ));
+
+        BoundSlots bound = new BindingEngine().bind(content, catalog, List.of());
+        Map<String, String> v = bound.getPathToValue();
+
+        assertEquals("sections", bound.getBindStrategy());
+        assertEquals("USB title", v.get("/jcr:content/jcr:title"));
+        assertEquals("<p>Intro</p>", v.get(article));
+        assertEquals("<h2>Two</h2>\n<p>Body two</p>", v.get(article + "#2"));
+        assertTrue(v.get(article + "#3").contains("<li>A</li>"));
+        assertEquals("section:3", bound.getPathToUnit().get(article + "#3"));
+    }
+
+    @Test
+    void singleSectionStillDumps() {
+        ContentDocument content = new ContentDocument(
+                "usb-table-form",
+                "T",
+                List.of(ContentUnit.paragraph("Only").inSection(1)));
+        SlotCatalog catalog = SlotCatalog.fromPaths(List.of(
+                "/jcr:content/jcr:title",
+                "/jcr:content/root/text/text"
+        ));
+        BoundSlots bound = new BindingEngine().bind(content, catalog, List.of());
+        assertEquals("dump", bound.getBindStrategy());
+        assertEquals("<p>Only</p>", bound.getPathToValue().get("/jcr:content/root/text/text"));
+    }
+
     private static SlotBinding bind(String unit, String path) {
         SlotBinding b = new SlotBinding();
         b.setUnit(unit);

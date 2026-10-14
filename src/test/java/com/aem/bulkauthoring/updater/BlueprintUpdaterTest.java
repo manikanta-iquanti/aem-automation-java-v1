@@ -1,5 +1,7 @@
 package com.aem.bulkauthoring.updater;
 
+import com.aem.bulkauthoring.blueprint.FieldFormat;
+import com.aem.bulkauthoring.model.document.DocumentBlock;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -7,6 +9,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -61,6 +64,51 @@ class BlueprintUpdaterTest {
         assertTrue(root.at("/jcr:content/root/hero").isMissingNode());
         assertEquals("Keep", root.at("/jcr:content/root/text/text").asText());
         assertFalse(root.at("/jcr:content/root/text").isMissingNode());
+    }
+
+    @Test
+    void clonesArticleComponentPerSectionDirectlyAfterPreviousCopy(@TempDir Path dir) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        Path blueprint = dir.resolve("usb.json");
+        Files.writeString(blueprint, "{"
+                + "\"jcr:content\":{\"root\":{\"leftPar\":{"
+                + "\"textmodule_copy\":{\"sling:resourceType\":\"usbank/components/content/textModule\","
+                + "\"jcr:uuid\":\"abc\",\"cq:lastModified\":\"x\",\"text\":\"Seed\",\"textIsRich\":\"true\"},"
+                + "\"textmodule\":{\"sling:resourceType\":\"usbank/components/content/textModule\",\"text\":\"Other\"},"
+                + "\"fullspancontentblock\":{\"title\":\"Span\"}"
+                + "}}}}");
+        Path updated = dir.resolve("updated.json");
+        String article = "/jcr:content/root/leftPar/textmodule_copy/text";
+
+        updater.update(
+                blueprint.toFile(),
+                List.of(block(article, "<p>One</p>"),
+                        block(article + "#2", "<p>Two</p>"),
+                        block(article + "#3", "<p>Three</p>")),
+                updated.toFile(),
+                Map.of(article, FieldFormat.HTML),
+                List.of("/jcr:content/root/leftPar/textmodule"));
+
+        JsonNode leftPar = mapper.readTree(updated.toFile()).at("/jcr:content/root/leftPar");
+        List<String> order = new ArrayList<>();
+        leftPar.fieldNames().forEachRemaining(order::add);
+        assertEquals(List.of("textmodule_copy", "textmodule_copy_2", "textmodule_copy_3",
+                "fullspancontentblock"), order);
+        assertEquals("<p>One</p>", leftPar.at("/textmodule_copy/text").asText());
+        assertEquals("<p>Two</p>", leftPar.at("/textmodule_copy_2/text").asText());
+        assertEquals("<p>Three</p>", leftPar.at("/textmodule_copy_3/text").asText());
+        assertEquals("true", leftPar.at("/textmodule_copy_3/textIsRich").asText());
+        assertEquals("abc", leftPar.at("/textmodule_copy/jcr:uuid").asText());
+        assertTrue(leftPar.at("/textmodule_copy_2/jcr:uuid").isMissingNode());
+        assertTrue(leftPar.at("/textmodule_copy_2/cq:lastModified").isMissingNode());
+    }
+
+    private static DocumentBlock block(String id, String value) {
+        DocumentBlock b =
+                new DocumentBlock();
+        b.setId(id);
+        b.setValue(value);
+        return b;
     }
 
     @Test

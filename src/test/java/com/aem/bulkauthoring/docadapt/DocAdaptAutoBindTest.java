@@ -1,7 +1,13 @@
 package com.aem.bulkauthoring.docadapt;
 
+import com.aem.bulkauthoring.blueprint.FieldFormat;
 import com.aem.bulkauthoring.docadapt.mapping.SlotBinding;
 import com.aem.bulkauthoring.docadapt.review.AdaptReviewModel;
+import com.aem.bulkauthoring.model.document.DocumentBlock;
+import com.aem.bulkauthoring.parser.DocumentParser;
+import com.aem.bulkauthoring.updater.BlueprintUpdater;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;
 import org.junit.jupiter.api.Test;
@@ -10,7 +16,9 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,11 +41,16 @@ class DocAdaptAutoBindTest {
         assertEquals(1, result.reviews.size());
         AdaptReviewModel review = result.reviews.get(0);
         assertEquals("usb-table-form", review.getRecipeId());
-        assertEquals("dump", review.getBindStrategy());
+        assertEquals("sections", review.getBindStrategy());
 
         String title = valueAt(review, "/jcr:content/jcr:title");
         assertEquals("How manufacturers can remain competitive in uncertain times", title);
-        String body = valueAt(review, "/jcr:content/root/container/container/text/text");
+        String article = "/jcr:content/root/container/container/text/text";
+        assertTrue(valueAt(review, article + "#2").length() > 0);
+        String body = review.getSlots().stream()
+                .filter(s -> s.getPath().startsWith(article))
+                .map(AdaptReviewModel.SlotReview::getValue)
+                .collect(java.util.stream.Collectors.joining("\n"));
         assertTrue(body.contains("<p>During periods of turbulence"));
         assertTrue(body.contains("<h2>Fight uncertainty with optimization</h2>"));
         assertTrue(body.contains("<li>Streamlining payment processes</li>"));
@@ -133,6 +146,51 @@ class DocAdaptAutoBindTest {
         AdaptReviewModel review = rebound.reviews.get(0);
         assertEquals("Widget launch", valueAt(review, "/jcr:content/root/container/text/text"));
         assertTrue(valueAt(review, "/jcr:content/jcr:title").contains("Intro paragraph"));
+    }
+
+    @Test
+    void usbSectionsBecomeStackedTextModulesInBbUsbBlueprint() throws Exception {
+        String leftPar = "/jcr:content/root/responsivegrid/advancedlayout_copy/leftPar";
+        String article = leftPar + "/textmodule_copy/text";
+        File template = writeTemplate(temp.resolve("bb-usb.docx").toFile(), List.of(article));
+
+        DocAdaptService service = new DocAdaptService();
+        DocAdaptService.AdaptJobResult result =
+                service.runAuto(template, "auto", List.of(USB_SOURCE));
+        AdaptReviewModel review = result.reviews.get(0);
+        assertEquals("sections", review.getBindStrategy());
+        File adapted = service.resolveAdaptedFile(result.jobId, review.getAdaptedFile());
+
+        List<DocumentBlock> blocks = new DocumentParser().parse(adapted.getPath());
+        assertTrue(blocks.size() > 1);
+        assertEquals(article, blocks.get(0).getId());
+        assertEquals(article + "#2", blocks.get(1).getId());
+
+        File updated = temp.resolve("bb-usb-updated.json").toFile();
+        new BlueprintUpdater().update(
+                new File("input/blueprint/bb-usb.json"),
+                blocks,
+                updated,
+                Map.of(article, FieldFormat.HTML),
+                List.of(leftPar + "/textmodule",
+                        leftPar + "/textmodule_559176784",
+                        leftPar + "/textmodule_344092626"));
+
+        JsonNode par = new ObjectMapper().readTree(updated).at(leftPar);
+        List<String> components = new ArrayList<>();
+        par.fieldNames().forEachRemaining(name -> {
+            if (par.get(name).isObject()) {
+                components.add(name);
+            }
+        });
+        List<String> expected = new ArrayList<>(List.of("rightpar_copy", "textmodule_copy"));
+        for (int n = 2; n <= blocks.size(); n++) {
+            expected.add("textmodule_copy_" + n);
+        }
+        expected.add("fullspancontentblock");
+        expected.add("imagemodule");
+        assertEquals(expected, components);
+        assertTrue(par.at("/textmodule_copy_2/text").asText().startsWith("<"));
     }
 
     private static String valueAt(AdaptReviewModel review, String path) {
